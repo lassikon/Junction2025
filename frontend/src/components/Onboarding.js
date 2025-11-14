@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "./Onboarding.css";
+import "../styles/Onboarding.css";
 
 const EDUCATION_PATHS = {
   vocational: {

@@ -223,6 +223,8 @@ async def create_player(
         game_state_response = GameStateResponse(
             session_id=session_id,
             current_step=game_state.current_step,
+            current_age=game_state.current_age,
+            years_passed=game_state.years_passed,
             money=game_state.money,
             monthly_income=game_state.monthly_income,
             monthly_expenses=game_state.monthly_expenses,
@@ -282,6 +284,8 @@ async def get_game_state(
         return GameStateResponse(
             session_id=session_id,
             current_step=game_state.current_step,
+            current_age=game_state.current_age,
+            years_passed=game_state.years_passed,
             money=game_state.money,
             monthly_income=game_state.monthly_income,
             monthly_expenses=game_state.monthly_expenses,
@@ -480,6 +484,8 @@ async def process_decision(
         updated_state = GameStateResponse(
             session_id=request.session_id,
             current_step=game_state.current_step,
+            current_age=game_state.current_age,
+            years_passed=game_state.years_passed,
             money=game_state.money,
             monthly_income=game_state.monthly_income,
             monthly_expenses=game_state.monthly_expenses,

@@ -1,0 +1,57 @@
+/* Consequence Modal Styles */
+.consequence-section {
+  text-align: center;
+}
+
+.consequence-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+.consequence-text {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: #555;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.learning-moment {
+  background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.learning-moment h3 {
+  color: #2d3436;
+  margin-bottom: 10px;
+  font-size: 1.3rem;
+}
+
+.learning-moment p {
+  color: #2d3436;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.btn-continue {
+  padding: 15px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-continue:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+

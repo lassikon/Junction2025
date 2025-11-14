@@ -223,11 +223,26 @@ def build_narrative_prompt(
 ) -> str:
     """Build prompt for event narrative generation"""
 
+    # Format assets for display
+    assets_text = ""
+    if state.assets:
+        assets_list = []
+        for key, value in state.assets.items():
+            if isinstance(value, dict):
+                asset_details = ", ".join([f"{k}: {v}" for k, v in value.items()])
+                assets_list.append(f"  • {key.replace('_', ' ').title()}: {asset_details}")
+            else:
+                assets_list.append(f"  • {key.replace('_', ' ').title()}: {value}")
+        assets_text = "Assets Owned:\n" + "\n".join(assets_list) if assets_list else "No major assets yet"
+    else:
+        assets_text = "Assets Owned: None yet"
+
     # Context about the player
     context = f"""{NARRATIVE_PROMPTS['system_context']}
 
 Player Profile:
-- Age: {profile.age}
+- Age: {state.current_age} (started at {profile.age})
+- Time in game: {state.years_passed:.1f} years
 - City: {profile.city}
 - Education: {profile.education_path.value}
 - Risk Attitude: {profile.risk_attitude.value}
@@ -241,6 +256,8 @@ Current Situation (Step {state.current_step}):
 - Motivation: {state.motivation}/100
 - Social Life: {state.social_life}/100
 - Financial Knowledge: {state.financial_knowledge}/100
+
+{assets_text}
 """
 
     # Tone guidance based on profile

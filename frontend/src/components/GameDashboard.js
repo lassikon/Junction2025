@@ -1,5 +1,5 @@
 import React from "react";
-import "./GameDashboard.css";
+import "../styles/GameDashboard.css";
 
 const GameDashboard = ({ gameState, onMakeDecision }) => {
   // Handle undefined or null gameState
