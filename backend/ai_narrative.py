@@ -73,10 +73,21 @@ def generate_event_narrative(
     try:
         prompt = build_narrative_prompt(event_type, state, profile, curveball)
 
+        print("\n" + "="*80)
+        print(f"🤖 GEMINI API CALL - Event Narrative ({event_type})")
+        print("="*80)
+        print("PROMPT:")
+        print(prompt)
+        print("\n" + "-"*80)
+
         response = client.models.generate_content(
             model="gemini-2.0-flash-exp",
             contents=prompt
         )
+
+        print("RESPONSE:")
+        print(response.text.strip())
+        print("="*80 + "\n")
 
         return response.text.strip()
 
@@ -115,10 +126,21 @@ def generate_consequence_narrative(
         prompt = build_consequence_prompt(
             chosen_option, option_effect, state, profile)
 
+        print("\n" + "="*80)
+        print("🤖 GEMINI API CALL - Consequence Narrative")
+        print("="*80)
+        print("PROMPT:")
+        print(prompt)
+        print("\n" + "-"*80)
+
         response = client.models.generate_content(
             model="gemini-2.0-flash-exp",
             contents=prompt
         )
+
+        print("RESPONSE:")
+        print(response.text.strip())
+        print("="*80 + "\n")
 
         return response.text.strip()
 
@@ -170,10 +192,21 @@ def generate_learning_moment(
 
 {LEARNING_PROMPTS['instruction']}"""
 
+        print("\n" + "="*80)
+        print("🤖 GEMINI API CALL - Learning Moment")
+        print("="*80)
+        print("PROMPT:")
+        print(prompt)
+        print("\n" + "-"*80)
+
         response = client.models.generate_content(
             model="gemini-2.0-flash-exp",
             contents=prompt
         )
+
+        print("RESPONSE:")
+        print(response.text.strip())
+        print("="*80 + "\n")
 
         return response.text.strip()
 

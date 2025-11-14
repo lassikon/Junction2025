@@ -174,6 +174,7 @@ async def create_player(
         # Create player profile
         profile = PlayerProfile(
             session_id=session_id,
+            player_name=request.player_name,
             age=request.age,
             city=request.city,
             education_path=request.education_path,

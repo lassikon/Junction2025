@@ -2,22 +2,27 @@ import React from "react";
 import "./GameDashboard.css";
 
 const GameDashboard = ({ gameState, onMakeDecision }) => {
+  // Handle undefined or null gameState
+  if (!gameState) {
+    return <div className="game-dashboard">Loading game state...</div>;
+  }
+
   const {
     session_id,
-    current_step,
-    money,
-    monthly_income,
-    monthly_expenses,
-    investments,
-    passive_income,
-    debts,
-    fi_score,
-    energy,
-    motivation,
-    social_life,
-    financial_knowledge,
-    assets,
-    game_status,
+    current_step = 0,
+    money = 0,
+    monthly_income = 0,
+    monthly_expenses = 0,
+    investments = 0,
+    passive_income = 0,
+    debts = 0,
+    fi_score = 0,
+    energy = 0,
+    motivation = 0,
+    social_life = 0,
+    financial_knowledge = 0,
+    assets = {},
+    game_status = "active"
   } = gameState;
 
   const formatCurrency = (amount) => {
@@ -199,11 +204,13 @@ const GameDashboard = ({ gameState, onMakeDecision }) => {
           <div className="assets-list">
             {Object.entries(assets).map(([key, value]) => (
               <div key={key} className="asset-item">
-                <span className="asset-key">
-                  {key.replace(/_/g, " ").toUpperCase()}
-                </span>
+                <span className="asset-key">{key.replace(/_/g, ' ').toUpperCase()}</span>
                 <span className="asset-value">
-                  {typeof value === "boolean" ? (value ? "✓" : "✗") : value}
+                  {typeof value === 'boolean' 
+                    ? (value ? '✓' : '✗') 
+                    : typeof value === 'object' 
+                      ? JSON.stringify(value) 
+                      : value}
                 </span>
               </div>
             ))}

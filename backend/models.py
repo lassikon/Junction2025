@@ -48,6 +48,9 @@ class PlayerProfile(SQLModel, table=True):
     # Unique identifier for this game session
     session_id: str = Field(index=True, unique=True)
 
+    # Player identification
+    player_name: str = Field(max_length=100)
+
     # Onboarding data
     age: int = Field(ge=15, le=35)
     city: str = Field(default="Helsinki")
@@ -176,8 +179,8 @@ class LeaderboardEntry(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     session_id: str = Field(index=True)
 
-    # Player info (minimal for privacy)
-    player_nickname: Optional[str] = None
+    # Player info
+    player_name: str
     age: int
     education_path: EducationPath
 
@@ -211,6 +214,7 @@ class LeaderboardEntry(SQLModel, table=True):
 
 class OnboardingRequest(SQLModel):
     """Request model for the onboarding endpoint"""
+    player_name: str = Field(max_length=100)
     age: int = Field(ge=15, le=35)
     city: str = "Helsinki"
     education_path: EducationPath
@@ -250,11 +254,6 @@ class OnboardingResponse(SQLModel):
     game_state: GameStateResponse
     initial_narrative: str
     initial_options: List[str]
-    financial_knowledge: int
-
-    # Assets and status
-    assets: dict
-    game_status: GameStatus
 
 
 class DecisionRequest(SQLModel):
@@ -275,7 +274,7 @@ class DecisionResponse(SQLModel):
 class LeaderboardResponse(SQLModel):
     """Response model for leaderboard data"""
     rank: int
-    player_nickname: Optional[str]
+    player_name: str
     final_fi_score: float
     balance_score: float
     age: int
