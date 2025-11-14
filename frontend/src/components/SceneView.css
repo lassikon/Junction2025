@@ -1,0 +1,102 @@
+.scene-view {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.scene-background {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+}
+
+.scene-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+  padding: 2rem;
+}
+
+.scene-assets {
+  position: absolute;
+  bottom: 20%;
+  left: 10%;
+  display: flex;
+  gap: 2rem;
+  align-items: flex-end;
+}
+
+.scene-asset {
+  max-width: 200px;
+  max-height: 150px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  transition: transform 0.3s ease;
+}
+
+.scene-asset:hover {
+  transform: scale(1.05);
+}
+
+.scene-character-container {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.scene-character {
+  max-width: 250px;
+  max-height: 350px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.3));
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .scene-view {
+    min-height: 300px;
+  }
+  
+  .scene-character {
+    max-width: 180px;
+    max-height: 250px;
+  }
+  
+  .scene-asset {
+    max-width: 120px;
+    max-height: 100px;
+  }
+  
+  .scene-assets {
+    bottom: 15%;
+    left: 5%;
+    gap: 1rem;
+  }
+}
+

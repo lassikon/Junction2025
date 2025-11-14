@@ -1,0 +1,65 @@
+.learn-container {
+  font-family: Inter, Arial, sans-serif;
+  max-width: 880px;
+  margin: 40px auto;
+  padding: 28px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 30px rgba(17, 24, 39, 0.06);
+}
+
+.learn-header h1 {
+  margin: 0 0 6px 0;
+  font-size: 1.6rem;
+}
+
+.subtitle {
+  margin: 0 0 18px 0;
+  color: #555;
+}
+
+.learn-main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.learn-section h2 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+}
+
+.learn-section p {
+  margin: 0;
+  color: #333;
+}
+
+.learn-section ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #333;
+}
+
+.learn-cta {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: #1976d2;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #111827;
+}
