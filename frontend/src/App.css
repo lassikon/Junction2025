@@ -165,6 +165,7 @@
   cursor: not-allowed;
 }
 
+<<<<<<< HEAD
 .button {
   padding: 12px 24px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -190,6 +191,8 @@
   cursor: not-allowed;
 }
 
+=======
+>>>>>>> ff7a020b0c5bc6e1136caf536e93fdea070353d5
 /* Global LifeSim Styles */
 * {
   box-sizing: border-box;

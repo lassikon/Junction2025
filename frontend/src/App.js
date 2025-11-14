@@ -6,6 +6,7 @@ import GamePage from './routes/GamePage';
 import SettingsPage from './routes/SettingsPage';
 import MockHome from './MockHome';
 import Chat from './Chat';
+import LearnMore from './LearnMore'
 import './App.css';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/old-home" element={<MockHome />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/learn" element={<LearnMore />} />
         </Routes>
       </Router>
     </GameProvider>
