@@ -3,6 +3,7 @@
 ## 📦 What's Been Added
 
 ### New Files Created:
+
 ```
 backend/
 ├── alembic/                      # Migration directory
@@ -16,14 +17,16 @@ backend/
 ```
 
 ### Modified Files:
+
 - ✅ `backend/requirements.txt` - Added `alembic==1.13.0`
-- ✅ `backend/main.py` - Commented out `create_db_and_tables()` 
+- ✅ `backend/main.py` - Commented out `create_db_and_tables()`
 - ✅ `backend/.gitignore` - Added database and cache exclusions
 - ✅ `Makefile` - Added migration commands
 
 ## 🚀 Quick Start Commands
 
 ### 1️⃣ First Time Setup
+
 ```bash
 # Install dependencies
 cd backend
@@ -37,6 +40,7 @@ alembic upgrade head
 ```
 
 ### 2️⃣ Daily Usage
+
 ```bash
 # When you modify models.py:
 make migrate MSG="describe your changes"
@@ -50,23 +54,25 @@ make db-status
 
 ## 📋 New Makefile Commands
 
-| Command | What It Does |
-|---------|-------------|
+| Command                  | What It Does                             |
+| ------------------------ | ---------------------------------------- |
 | `make migrate MSG="..."` | Create new migration after model changes |
-| `make db-upgrade` | Apply all pending migrations |
-| `make db-downgrade` | Rollback last migration |
-| `make db-status` | Show current migration version |
-| `make db-history` | Show all migrations |
+| `make db-upgrade`        | Apply all pending migrations             |
+| `make db-downgrade`      | Rollback last migration                  |
+| `make db-status`         | Show current migration version           |
+| `make db-history`        | Show all migrations                      |
 
 ## 🎯 Next Steps
 
 1. **Install Alembic:**
+
    ```bash
    cd backend
    pip install -r requirements.txt
    ```
 
 2. **Create Initial Migration:**
+
    ```bash
    ./init_migrations.sh
    # OR manually:
@@ -74,10 +80,12 @@ make db-status
    ```
 
 3. **Review the Generated Migration:**
+
    - Check `backend/alembic/versions/xxxxxx_initial_migration.py`
    - Ensure it creates `user` and `chathistory` tables correctly
 
 4. **Apply the Migration:**
+
    ```bash
    alembic upgrade head
    # OR from project root:
@@ -85,6 +93,7 @@ make db-status
    ```
 
 5. **Test Your Application:**
+
    ```bash
    cd backend
    uvicorn main:app --reload
@@ -132,6 +141,7 @@ git commit -m "Add phone field to User model"
 ## ⚠️ Important Changes
 
 ### In `main.py`:
+
 The old `create_db_and_tables()` is now **commented out**. Database tables are created by running migrations instead:
 
 ```python
@@ -145,6 +155,7 @@ The old `create_db_and_tables()` is now **commented out**. Database tables are c
 ```
 
 ### Why This is Better:
+
 - ✅ Track schema changes in version control
 - ✅ Safe upgrades and rollbacks
 - ✅ Team collaboration without conflicts
@@ -156,6 +167,7 @@ The old `create_db_and_tables()` is now **commented out**. Database tables are c
 Check the troubleshooting section in `MIGRATIONS_README.md` or:
 
 **Reset everything (⚠️ destroys data):**
+
 ```bash
 rm backend/app.db
 rm backend/alembic/versions/*.py
@@ -163,6 +175,7 @@ cd backend && ./init_migrations.sh
 ```
 
 **Common issues:**
+
 - "Command 'alembic' not found" → Run `pip install -r requirements.txt`
 - "No such table" → Run `make db-upgrade`
 - Migration not detecting changes → Check model is imported in `alembic/env.py`

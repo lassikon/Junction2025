@@ -26,12 +26,14 @@ pip install -r requirements.txt
 ### Step 2: Create Initial Migration
 
 Option A - Using the script:
+
 ```bash
 cd backend
 ./init_migrations.sh
 ```
 
 Option B - Manual:
+
 ```bash
 cd backend
 alembic revision --autogenerate -m "initial migration"
@@ -40,6 +42,7 @@ alembic revision --autogenerate -m "initial migration"
 ### Step 3: Review the Migration
 
 Check the generated file in `backend/alembic/versions/`. It should contain:
+
 - `user` table with id, username, email, created_at
 - `chathistory` table with id, user_id, message, response, model, created_at
 
@@ -68,6 +71,7 @@ make db-history
 ### When You Modify Models
 
 1. **Edit your model** in `backend/models.py`:
+
    ```python
    class User(SQLModel, table=True):
        id: Optional[int] = Field(default=None, primary_key=True)
@@ -78,10 +82,11 @@ make db-history
    ```
 
 2. **Generate migration**:
+
    ```bash
    # From project root
    make migrate MSG="add phone to user"
-   
+
    # OR from backend directory
    alembic revision --autogenerate -m "add phone to user"
    ```
@@ -89,6 +94,7 @@ make db-history
 3. **Review the generated migration** in `alembic/versions/`
 
 4. **Apply migration**:
+
    ```bash
    make db-upgrade
    ```
@@ -106,25 +112,25 @@ make db-history
 
 ### From Project Root (using Makefile)
 
-| Command | Description |
-|---------|-------------|
-| `make migrate MSG="description"` | Create new migration |
-| `make db-upgrade` | Apply all pending migrations |
-| `make db-downgrade` | Rollback last migration |
-| `make db-status` | Show current version |
-| `make db-history` | Show all migrations |
+| Command                          | Description                  |
+| -------------------------------- | ---------------------------- |
+| `make migrate MSG="description"` | Create new migration         |
+| `make db-upgrade`                | Apply all pending migrations |
+| `make db-downgrade`              | Rollback last migration      |
+| `make db-status`                 | Show current version         |
+| `make db-history`                | Show all migrations          |
 
 ### From backend/ Directory (using alembic directly)
 
-| Command | Description |
-|---------|-------------|
-| `alembic revision --autogenerate -m "msg"` | Create migration |
-| `alembic upgrade head` | Apply all migrations |
-| `alembic downgrade -1` | Rollback one migration |
-| `alembic current` | Show current version |
-| `alembic history` | Show migration history |
-| `alembic upgrade +1` | Apply next migration only |
-| `alembic downgrade base` | Rollback everything |
+| Command                                    | Description               |
+| ------------------------------------------ | ------------------------- |
+| `alembic revision --autogenerate -m "msg"` | Create migration          |
+| `alembic upgrade head`                     | Apply all migrations      |
+| `alembic downgrade -1`                     | Rollback one migration    |
+| `alembic current`                          | Show current version      |
+| `alembic history`                          | Show migration history    |
+| `alembic upgrade +1`                       | Apply next migration only |
+| `alembic downgrade base`                   | Rollback everything       |
 
 ## 🔄 Migration Workflow Diagram
 
@@ -180,18 +186,23 @@ Or add to your `docker-compose.yml` or entrypoint script to run on startup.
 ## 🆘 Troubleshooting
 
 ### "No such table" error
+
 You haven't applied migrations yet:
+
 ```bash
 make db-upgrade
 ```
 
 ### "Target database is not up to date"
+
 Apply pending migrations:
+
 ```bash
 make db-upgrade
 ```
 
 ### Migration not detecting changes
+
 1. Make sure your model is imported in `alembic/env.py`
 2. Check that SQLModel table=True is set
 3. Try a manual migration:
@@ -202,6 +213,7 @@ make db-upgrade
    ```
 
 ### Want to start fresh (⚠️ DESTROYS DATA)
+
 ```bash
 rm backend/app.db
 rm backend/alembic/versions/*.py

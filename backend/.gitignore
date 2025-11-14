@@ -13,8 +13,5 @@ venv/
 # Database files
 *.db
 *.db-journal
-*.db.backup.*
-
-# Keep migration files but ignore pycache
-alembic/__pycache__/
-alembic/versions/__pycache__/
+*.sqlite
+*.sqlite3
