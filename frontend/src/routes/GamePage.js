@@ -161,9 +161,9 @@ function GamePage() {
   // ===================================
   if (showOnboarding) {
     return (
-      <div className="App">
+      <div className="game-page-container">
         {onboardingMutation.isError && (
-          <div className="error-banner">
+          <div className="game-page-error-banner">
             <p>
               {onboardingMutation.error?.response?.data?.detail ||
                 "Failed to initialize game. Please try again."}
@@ -184,18 +184,20 @@ function GamePage() {
   // RENDER: Game Dashboard
   // ===================================
   return (
-    <div className="App">
+    <div className="game-page-container">
       {/* API Status Bar */}
-      <div className="api-status-bar">
-        <div className={`status status-${apiStatus}`}>API: {apiStatus}</div>
-        <button onClick={handleNewGame} className="btn-new-game">
+      <div className="game-page-api-status">
+        <div className={`game-page-status game-page-status-${apiStatus}`}>
+          API: {apiStatus}
+        </div>
+        <button onClick={handleNewGame} className="game-page-btn-new-game">
           New Game
         </button>
       </div>
 
       {/* Error Banner for Decision Errors */}
       {decisionMutation.isError && (
-        <div className="error-banner">
+        <div className="game-page-error-banner">
           <p>
             {decisionMutation.error?.response?.data?.detail ||
               "Failed to process decision. Please try again."}
@@ -206,8 +208,8 @@ function GamePage() {
 
       {/* Loading State */}
       {isLoadingPlayerState && (
-        <div className="loading-overlay">
-          <div className="loading-spinner">Loading game state...</div>
+        <div className="game-page-loading-overlay">
+          <div className="game-page-loading-spinner">Loading game...</div>
         </div>
       )}
 
@@ -237,7 +239,7 @@ function GamePage() {
               </div>
               <button
                 onClick={handleMakeDecision}
-                className="btn-make-decision"
+                className="game-page-btn-make-decision"
               >
                 📝 Make Decision
               </button>
@@ -265,36 +267,36 @@ function GamePage() {
               </div>
 
               <div className="game-right">
-                <div className="financial-summary">
+                <div className="game-page-financial-summary">
                   <h3>💰 Financial Status</h3>
-                  <div className="financial-grid">
-                    <div className="financial-item">
-                      <span className="label">Income:</span>
-                      <span className="value">
+                  <div className="game-page-financial-grid">
+                    <div className="game-page-financial-item">
+                      <span className="game-page-label">Income:</span>
+                      <span className="game-page-value">
                         €{playerState.monthly_income?.toLocaleString() || 0}
                       </span>
                     </div>
-                    <div className="financial-item">
-                      <span className="label">Expenses:</span>
-                      <span className="value">
+                    <div className="game-page-financial-item">
+                      <span className="game-page-label">Expenses:</span>
+                      <span className="game-page-value">
                         €{playerState.monthly_expenses?.toLocaleString() || 0}
                       </span>
                     </div>
-                    <div className="financial-item">
-                      <span className="label">Investments:</span>
-                      <span className="value">
+                    <div className="game-page-financial-item">
+                      <span className="game-page-label">Investments:</span>
+                      <span className="game-page-value">
                         €{playerState.investments?.toLocaleString() || 0}
                       </span>
                     </div>
-                    <div className="financial-item">
-                      <span className="label">Passive Income:</span>
-                      <span className="value">
+                    <div className="game-page-financial-item">
+                      <span className="game-page-label">Passive Income:</span>
+                      <span className="game-page-value">
                         €{playerState.passive_income?.toLocaleString() || 0}
                       </span>
                     </div>
-                    <div className="financial-item">
-                      <span className="label">Debts:</span>
-                      <span className="value debt">
+                    <div className="game-page-financial-item">
+                      <span className="game-page-label">Debts:</span>
+                      <span className="game-page-value game-page-debt">
                         €{playerState.debts?.toLocaleString() || 0}
                       </span>
                     </div>
@@ -313,27 +315,33 @@ function GamePage() {
 
           {/* Decision Modal */}
           {showDecisionModal && !showConsequenceModal && (
-            <div className="modal-overlay" onClick={closeDecisionModal}>
+            <div
+              className="game-page-modal-overlay"
+              onClick={closeDecisionModal}
+            >
               <div
-                className="modal-content"
+                className="game-page-modal-content"
                 onClick={(e) => e.stopPropagation()}
               >
-                <button className="modal-close" onClick={closeDecisionModal}>
+                <button
+                  className="game-page-modal-close"
+                  onClick={closeDecisionModal}
+                >
                   ×
                 </button>
 
-                <div className="narrative-section">
+                <div className="game-page-narrative-section">
                   <h2>📖 Your Story</h2>
-                  <p className="narrative-text">{currentNarrative}</p>
+                  <p className="game-page-narrative-text">{currentNarrative}</p>
                 </div>
 
-                <div className="options-section">
+                <div className="game-page-options-section">
                   <h3>What will you do?</h3>
-                  <div className="options-grid">
+                  <div className="game-page-options-grid">
                     {currentOptions.map((option, index) => (
                       <button
                         key={index}
-                        className="option-button"
+                        className="game-page-option-button"
                         onClick={() => handleChooseOption(option, index)}
                         disabled={decisionMutation.isPending}
                       >
@@ -348,33 +356,36 @@ function GamePage() {
 
           {/* Consequence Modal */}
           {showConsequenceModal && consequenceData && (
-            <div className="modal-overlay" onClick={handleCloseConsequence}>
+            <div
+              className="game-page-modal-overlay"
+              onClick={handleCloseConsequence}
+            >
               <div
-                className="modal-content"
+                className="game-page-modal-content"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
-                  className="modal-close"
+                  className="game-page-modal-close"
                   onClick={handleCloseConsequence}
                 >
                   ×
                 </button>
 
-                <div className="consequence-section">
+                <div className="game-page-consequence-section">
                   <h2>📊 Result</h2>
-                  <p className="consequence-text">
+                  <p className="game-page-consequence-text">
                     {consequenceData.consequence}
                   </p>
 
                   {consequenceData.learningMoment && (
-                    <div className="learning-moment">
+                    <div className="game-page-learning-moment">
                       <h3>💡 Learning Moment</h3>
                       <p>{consequenceData.learningMoment}</p>
                     </div>
                   )}
 
                   <button
-                    className="btn-continue"
+                    className="game-page-btn-continue"
                     onClick={handleCloseConsequence}
                   >
                     Continue
@@ -386,7 +397,7 @@ function GamePage() {
         </>
       )}
     </div>
-  );  
+  );
 }
 
 export default GamePage;
