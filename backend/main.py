@@ -44,6 +44,36 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LifeSim: Financial Independence Quest API",
+    description="""
+    ## LifeSim Financial Independence Quest
+    
+    An interactive game that teaches financial literacy through life decisions.
+    
+    ### Features:
+    * **Onboarding**: Create personalized player profiles
+    * **Game Progression**: Navigate through life stages with financial decisions
+    * **Decision Making**: Make choices that impact your financial health
+    * **Leaderboard**: Compete with other players on Financial Independence Score
+    * **AI-Generated Narratives**: Dynamic storytelling powered by Gemini AI
+    
+    ### Game Flow:
+    1. Complete onboarding to set up your profile
+    2. Receive life events and make decisions
+    3. See consequences of your choices
+    4. Progress through life stages
+    5. Aim for financial independence!
+    """,
+    version="1.0.0",
+    contact={
+        "name": "Junction2025 Team",
+        "url": "https://github.com/lassikon/Junction2025",
+    },
+    license_info={
+        "name": "MIT",
+    },
+    docs_url="/docs",  # Swagger UI
+    redoc_url="/redoc",  # ReDoc alternative documentation
+    openapi_url="/openapi.json",  # OpenAPI schema
     lifespan=lifespan
 )
 
@@ -83,20 +113,28 @@ class ChatResponse(BaseModel):
     model: str
 
 
-@app.get("/")
+@app.get("/", tags=["System"])
 async def root():
+    """
+    Root endpoint - API welcome message
+    """
     return {"message": "AI Hackathon API is running!"}
 
 
-@app.get("/health")
+@app.get("/health", tags=["System"])
 async def health():
+    """
+    Health check endpoint - verify API is operational
+    """
     return {"status": "healthy"}
 
 
-@app.post("/api/chat", response_model=ChatResponse)
+@app.post("/api/chat", response_model=ChatResponse, tags=["AI"])
 async def chat(chat_message: ChatMessage, session: AsyncSession = Depends(get_session)):
     """
-    Basic chat endpoint - integrate with OpenAI, Anthropic, or other LLM providers
+    Chat with AI using Gemini models
+    
+    Send a message to the AI and receive a response powered by Google's Gemini.
     """
     try:
         if not GEMINI_API_KEY or not client:
@@ -137,10 +175,12 @@ async def chat(chat_message: ChatMessage, session: AsyncSession = Depends(get_se
             status_code=500, detail=f"Error generating response: {str(e)}")
 
 
-@app.get("/api/models")
+@app.get("/api/models", tags=["AI"])
 async def list_models():
     """
-    List available models
+    List available AI models
+    
+    Get a list of all available Gemini models that can be used for chat.
     """
     return {
         "models": [
@@ -157,15 +197,23 @@ async def list_models():
 # LifeSim Game Endpoints
 # =====================================================
 
-@app.post("/api/onboarding", response_model=OnboardingResponse)
+@app.post("/api/onboarding", response_model=OnboardingResponse, tags=["Game"])
 async def create_player(
     request: OnboardingRequest,
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Create a new player profile and initialize game state.
+    Create a new player profile and start the game
+    
     This is the first endpoint called when starting a new game.
-    Returns initial game state, narrative, and first set of options.
+    
+    **Process:**
+    1. Creates a player profile with provided information
+    2. Initializes game state with starting values
+    3. Generates the first life event and decision options
+    4. Returns session_id for subsequent API calls
+    
+    **Returns:** Initial game state with narrative and decision options
     """
     try:
         # Generate unique session ID
@@ -252,13 +300,21 @@ async def create_player(
             status_code=500, detail=f"Error creating player: {str(e)}")
 
 
-@app.get("/api/game/{session_id}", response_model=GameStateResponse)
+@app.get("/api/game/{session_id}", response_model=GameStateResponse, tags=["Game"])
 async def get_game_state(
     session_id: str,
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Get current game state for a session.
+    Get current game state for a session
+    
+    Retrieve the current financial status, life stage, and game progress
+    for an active game session.
+    
+    **Parameters:**
+    - **session_id**: Unique session identifier from onboarding
+    
+    **Returns:** Current game state with all financial metrics
     """
     try:
         # Find the profile
@@ -304,13 +360,20 @@ async def get_game_state(
             status_code=500, detail=f"Error retrieving game state: {str(e)}")
 
 
-@app.get("/api/leaderboard", response_model=List[dict])
+@app.get("/api/leaderboard", response_model=List[dict], tags=["Leaderboard"])
 async def get_leaderboard(
     limit: int = 10,
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Get top players from the leaderboard.
+    Get top players from the leaderboard
+    
+    Retrieve the highest-scoring players based on Financial Independence Score.
+    
+    **Parameters:**
+    - **limit**: Maximum number of players to return (default: 10)
+    
+    **Returns:** List of top players with their scores and achievements
     """
     try:
         result = await session.execute(
@@ -338,20 +401,29 @@ async def get_leaderboard(
             status_code=500, detail=f"Error retrieving leaderboard: {str(e)}")
 
 
-@app.post("/api/step", response_model=DecisionResponse)
+@app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 async def process_decision(
     request: DecisionRequest,
     db_session: AsyncSession = Depends(get_session)
 ):
     """
-    Process a player's decision and progress the game.
+    Process a player's decision and advance the game
+    
+    Main gameplay endpoint that processes decisions and progresses the story.
 
-    This endpoint:
+    **Process:**
     1. Retrieves current game state
-    2. Applies the chosen decision's effects
+    2. Applies the chosen decision's effects to finances and stats
     3. Records the decision in history
-    4. Generates the next event and options
-    5. Returns updated state and next narrative
+    4. Generates consequence narrative with AI
+    5. Creates the next event and decision options
+    6. Updates life stage if applicable
+    
+    **Parameters:**
+    - **session_id**: Current game session identifier
+    - **decision_index**: Index of the chosen decision option
+    
+    **Returns:** Updated game state, consequence narrative, and next decision options
     """
     try:
         # Get player profile and game state
