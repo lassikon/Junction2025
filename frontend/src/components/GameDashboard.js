@@ -8,7 +8,6 @@ const GameDashboard = ({ gameState, onMakeDecision }) => {
   }
 
   const {
-    session_id,
     current_step = 0,
     money = 0,
     monthly_income = 0,
