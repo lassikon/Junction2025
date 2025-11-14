@@ -9,3 +9,12 @@ venv/
 .venv
 *.log
 .DS_Store
+
+# Database files
+*.db
+*.db-journal
+*.db.backup.*
+
+# Keep migration files but ignore pycache
+alembic/__pycache__/
+alembic/versions/__pycache__/

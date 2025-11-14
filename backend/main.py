@@ -1,10 +1,15 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import os
 from dotenv import load_dotenv
 from google import genai
+from sqlmodel import Session
+
+# Import database setup
+from database import create_db_and_tables, get_session
+from models import User, ChatHistory
 
 load_dotenv()
 
@@ -28,6 +33,15 @@ app.add_middleware(
 )
 
 
+# Database tables are managed by Alembic migrations
+# Run: alembic upgrade head
+# See: MIGRATIONS_README.md for more info
+@app.on_event("startup")
+def on_startup():
+    # create_db_and_tables()  # Disabled - use Alembic migrations instead
+    pass
+
+
 class ChatMessage(BaseModel):
     message: str
     model: Optional[str] = "gemini-2.0-flash-exp"
@@ -49,7 +63,7 @@ async def health():
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(chat_message: ChatMessage):
+async def chat(chat_message: ChatMessage, session: Session = Depends(get_session)):
     """
     Basic chat endpoint - integrate with OpenAI, Anthropic, or other LLM providers
     """
@@ -75,6 +89,15 @@ async def chat(chat_message: ChatMessage):
         
         print("Response object:", response)
         print("Response text:", response.text)
+        
+        # Save chat history to database
+        chat_history = ChatHistory(
+            message=chat_message.message,
+            response=response.text,
+            model=model_to_use
+        )
+        session.add(chat_history)
+        session.commit()
         
         return ChatResponse(
             response=response.text,
@@ -103,3 +126,32 @@ async def list_models():
             {"id": "gemini-pro", "name": "Gemini Pro"},
         ]
     }
+
+
+# Example endpoints using SQLModel
+
+@app.post("/api/users", response_model=User)
+async def create_user(user: User, session: Session = Depends(get_session)):
+    """Create a new user"""
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+@app.get("/api/users/{user_id}", response_model=User)
+async def get_user(user_id: int, session: Session = Depends(get_session)):
+    """Get a user by ID"""
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@app.get("/api/chat/history")
+async def get_chat_history(session: Session = Depends(get_session), limit: int = 10):
+    """Get recent chat history"""
+    from sqlmodel import select
+    statement = select(ChatHistory).order_by(ChatHistory.created_at.desc()).limit(limit)
+    chats = session.exec(statement).all()
+    return {"history": chats}
