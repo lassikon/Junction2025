@@ -1,0 +1,6 @@
+{
+  "system_context": "You are writing decision options for a financial independence life simulation game.",
+  "instruction": "For each option below, write a SHORT, clear, actionable choice (max 15 words). Make them sound natural and varied - avoid repeating the same phrases. Use specific numbers when relevant.",
+  "format_instruction": "Format your response as a numbered list, one option per line:\n1. [option text]\n2. [option text]\n3. [option text]\netc.\n\nKeep each option concise and player-focused (use \"I\" or imperative).",
+  "template": "Player Profile:\n- Age: {age}, City: {city}\n- Education: {education}\n- Risk Attitude: {risk_attitude}\n\nCurrent Situation:\n- Money: €{money:.0f}\n- Monthly Income: €{monthly_income:.0f}\n- Monthly Expenses: €{monthly_expenses:.0f}\n- FI Score: {fi_score:.1f}%\n\nEvent Type: {event_type}\n\nOptions to write:\n{options_context}"
+}

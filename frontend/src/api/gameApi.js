@@ -78,10 +78,11 @@ export function useMakeDecision() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ sessionId, chosenOption }) => {
+    mutationFn: async ({ sessionId, chosenOption, optionIndex }) => {
       const response = await axios.post(`${API_URL}/api/step`, {
         session_id: sessionId,
         chosen_option: chosenOption,
+        option_index: optionIndex,
       });
       return response.data;
     },

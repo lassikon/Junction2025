@@ -93,11 +93,12 @@ function App() {
   /**
    * Handle option selection
    */
-  const handleChooseOption = async (chosenOption) => {
+  const handleChooseOption = async (chosenOption, optionIndex) => {
     try {
       const result = await decisionMutation.mutateAsync({
         sessionId,
         chosenOption,
+        optionIndex,
       });
 
       // Close decision modal
@@ -222,7 +223,7 @@ function App() {
                       <button
                         key={index}
                         className="option-button"
-                        onClick={() => handleChooseOption(option)}
+                        onClick={() => handleChooseOption(option, index)}
                         disabled={decisionMutation.isPending}
                       >
                         {decisionMutation.isPending ? "Processing..." : option}

@@ -276,40 +276,40 @@ def create_first_paycheck_options(state: GameState) -> List[Dict]:
 
     return [
         {
-            "text": "Save 50% in emergency fund, spend the rest",
+            "fallback_text": "Save 50% in emergency fund, spend the rest",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", paycheck * 0.5)
-                    or setattr(e, "motivation_change", 5)
-                    or setattr(e, "knowledge_change", 5),
-            "explanation": "Building an emergency fund is financially wise and boosts confidence."
+            or setattr(e, "motivation_change", 5)
+            or setattr(e, "knowledge_change", 5),
+            "explanation": f"Save €{paycheck * 0.5:.0f} (50%) for emergencies, use the rest for living"
         },
         {
-            "text": "Invest 30% in index funds, save 20%, enjoy 50%",
+            "fallback_text": "Invest 30% in index funds, save 20%, enjoy 50%",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", paycheck * 0.2)
-                    or setattr(e, "investment_change", paycheck * 0.3)
-                    or setattr(e, "passive_income_change", paycheck * 0.3 * 0.005)
-                    or setattr(e, "knowledge_change", 10)
-                    or setattr(e, "social_change", 5),
-            "explanation": "Balanced approach: investing early, saving, and enjoying life."
+            or setattr(e, "investment_change", paycheck * 0.3)
+            or setattr(e, "passive_income_change", paycheck * 0.3 * 0.005)
+            or setattr(e, "knowledge_change", 10)
+            or setattr(e, "social_change", 5),
+            "explanation": f"Invest €{paycheck * 0.3:.0f} (30%), save €{paycheck * 0.2:.0f} (20%), spend rest on lifestyle"
         },
         {
-            "text": "Celebrate with friends and treat yourself",
+            "fallback_text": "Celebrate with friends and treat yourself",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", paycheck * 0.1)
-                    or setattr(e, "social_change", 15)
-                    or setattr(e, "motivation_change", 10)
-                    or setattr(e, "energy_change", 5),
-            "explanation": "Enjoying your hard work is important, but leaves little for savings."
+            or setattr(e, "social_change", 15)
+            or setattr(e, "motivation_change", 10)
+            or setattr(e, "energy_change", 5),
+            "explanation": f"Celebrate big! Save only €{paycheck * 0.1:.0f} (10%), enjoy the moment with friends"
         },
         {
-            "text": "Save 80% aggressively for future goals",
+            "fallback_text": "Save 80% aggressively for future goals",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", paycheck * 0.8)
-                    or setattr(e, "motivation_change", -5)
-                    or setattr(e, "social_change", -10)
-                    or setattr(e, "knowledge_change", 5),
-            "explanation": "Maximum savings, but may impact quality of life and relationships."
+            or setattr(e, "motivation_change", -5)
+            or setattr(e, "social_change", -10)
+            or setattr(e, "knowledge_change", 5),
+            "explanation": f"Maximize savings: put away €{paycheck * 0.8:.0f} (80%) for financial goals"
         }
     ]
 
@@ -318,25 +318,25 @@ def create_budget_options(state: GameState) -> List[Dict]:
     """Options for budget decision event"""
     return [
         {
-            "text": "Create a detailed budget using the 50/30/20 rule",
+            "fallback_text": "Create a detailed budget using the 50/30/20 rule",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "knowledge_change", 15)
-                    or setattr(e, "motivation_change", 5),
-            "explanation": "Smart budgeting helps track expenses: 50% needs, 30% wants, 20% savings."
+            or setattr(e, "motivation_change", 5),
+            "explanation": "Track expenses with 50% for needs, 30% for wants, 20% for savings"
         },
         {
-            "text": "Use a budgeting app to automate tracking",
+            "fallback_text": "Use a budgeting app to automate tracking",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "knowledge_change", 10)
-                    or setattr(e, "money_change", -5)
-                    or setattr(e, "motivation_change", 10),
-            "explanation": "Technology makes budgeting easier, small subscription cost."
+            or setattr(e, "money_change", -5)
+            or setattr(e, "motivation_change", 10),
+            "explanation": "Subscribe to a budgeting app (€5) for automated expense tracking"
         },
         {
-            "text": "Keep rough mental track of spending",
+            "fallback_text": "Keep rough mental track of spending",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "knowledge_change", 2),
-            "explanation": "Less structure, might miss overspending patterns."
+            "explanation": "Casual approach: no formal budget, just estimate spending mentally"
         }
     ]
 
@@ -347,27 +347,27 @@ def create_emergency_fund_options(state: GameState) -> List[Dict]:
 
     return [
         {
-            "text": f"Save aggressively to reach 3 months expenses (€{target:.0f})",
+            "fallback_text": f"Save aggressively to reach 3 months expenses (€{target:.0f})",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", min(state.monthly_income * 0.4, target - state.money))
             or setattr(e, "knowledge_change", 10)
             or setattr(e, "social_change", -5),
-            "explanation": "Financial security first, but requires sacrifice."
+            "explanation": f"Save €{min(state.monthly_income * 0.4, target - state.money):.0f} (40% of income) to build emergency fund of €{target:.0f}"
         },
         {
-            "text": "Save gradually while maintaining lifestyle",
+            "fallback_text": "Save gradually while maintaining lifestyle",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", state.monthly_income * 0.2)
-                    or setattr(e, "knowledge_change", 5),
-            "explanation": "Balanced approach to building emergency fund."
+            or setattr(e, "knowledge_change", 5),
+            "explanation": f"Save €{state.monthly_income * 0.2:.0f} (20% of income) monthly, keep lifestyle balanced"
         },
         {
-            "text": "Focus on enjoying life now, save what's left",
+            "fallback_text": "Focus on enjoying life now, save what's left",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", state.monthly_income * 0.05)
-                    or setattr(e, "social_change", 10)
-                    or setattr(e, "energy_change", 5),
-            "explanation": "Living well now, but vulnerable to emergencies."
+            or setattr(e, "social_change", 10)
+            or setattr(e, "energy_change", 5),
+            "explanation": f"Live well now, save only €{state.monthly_income * 0.05:.0f} (5%) from each paycheck"
         }
     ]
 
@@ -376,28 +376,28 @@ def create_investment_options(state: GameState) -> List[Dict]:
     """Options for investment opportunity event"""
     return [
         {
-            "text": "Invest €2,000 in diversified index funds",
+            "fallback_text": "Invest €2,000 in diversified index funds",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", -2000)
-                    or setattr(e, "investment_change", 2000)
-                    or setattr(e, "passive_income_change", 10)
-                    or setattr(e, "knowledge_change", 15),
-            "explanation": "Long-term growth potential, compound returns over time."
+            or setattr(e, "investment_change", 2000)
+            or setattr(e, "passive_income_change", 10)
+            or setattr(e, "knowledge_change", 15),
+            "explanation": "Invest €2,000 in low-cost index funds for long-term compound growth"
         },
         {
-            "text": "Invest €1,000 in a high-growth tech fund",
+            "fallback_text": "Invest €1,000 in a high-growth tech fund",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", -1000)
-                    or setattr(e, "investment_change", 1000)
-                    or setattr(e, "passive_income_change", 8)
-                    or setattr(e, "knowledge_change", 10),
-            "explanation": "Higher risk but potentially higher returns."
+            or setattr(e, "investment_change", 1000)
+            or setattr(e, "passive_income_change", 8)
+            or setattr(e, "knowledge_change", 10),
+            "explanation": "Invest €1,000 in higher-risk tech sector for potential bigger returns"
         },
         {
-            "text": "Keep savings liquid for now",
+            "fallback_text": "Keep savings liquid for now",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "motivation_change", -5),
-            "explanation": "Playing it safe, missing growth opportunities."
+            "explanation": "Skip investing this time, keep cash available for opportunities or emergencies"
         }
     ]
 
@@ -406,28 +406,28 @@ def create_career_options(state: GameState) -> List[Dict]:
     """Options for career opportunity event"""
     return [
         {
-            "text": "Take overtime shifts for extra income",
+            "fallback_text": "Take overtime shifts for extra income",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "income_change", 400)
-                    or setattr(e, "energy_change", -15)
-                    or setattr(e, "social_change", -10),
-            "explanation": "More money, but burnout risk and less free time."
+            or setattr(e, "energy_change", -15)
+            or setattr(e, "social_change", -10),
+            "explanation": "Work extra hours for €400 more monthly income, but sacrifice energy and social time"
         },
         {
-            "text": "Pursue a certification course for career growth",
+            "fallback_text": "Pursue a certification course for career growth",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", -800)
-                    or setattr(e, "income_change", 200)
-                    or setattr(e, "knowledge_change", 20)
-                    or setattr(e, "motivation_change", 10),
-            "explanation": "Investment in yourself, long-term income boost."
+            or setattr(e, "income_change", 200)
+            or setattr(e, "knowledge_change", 20)
+            or setattr(e, "motivation_change", 10),
+            "explanation": "Pay €800 for certification that boosts income by €200/month and opens career doors"
         },
         {
-            "text": "Maintain current work-life balance",
+            "fallback_text": "Maintain current work-life balance",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "energy_change", 5)
-                    or setattr(e, "social_change", 5),
-            "explanation": "Prioritizing well-being over extra income."
+            or setattr(e, "social_change", 5),
+            "explanation": "Keep things as they are, prioritize well-being over extra earnings"
         }
     ]
 
@@ -436,27 +436,27 @@ def create_lifestyle_options(state: GameState) -> List[Dict]:
     """Options for lifestyle choice event"""
     return [
         {
-            "text": "Join a gym and cooking class (€60/month)",
+            "fallback_text": "Join a gym and cooking class (€60/month)",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "expense_change", 60)
-                    or setattr(e, "energy_change", 15)
-                    or setattr(e, "motivation_change", 10),
-            "explanation": "Investing in health and skills improves overall well-being."
+            or setattr(e, "energy_change", 15)
+            or setattr(e, "motivation_change", 10),
+            "explanation": "Invest €60/month in gym membership and cooking class for health and skills"
         },
         {
-            "text": "Free outdoor activities and online resources",
+            "fallback_text": "Free outdoor activities and online resources",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "energy_change", 10)
-                    or setattr(e, "knowledge_change", 5),
-            "explanation": "Frugal approach to staying active and learning."
+            or setattr(e, "knowledge_change", 5),
+            "explanation": "Stay active with free running, hiking, and YouTube fitness videos"
         },
         {
-            "text": "Treat yourself to entertainment subscriptions (€40/month)",
+            "fallback_text": "Treat yourself to entertainment subscriptions (€40/month)",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "expense_change", 40)
-                    or setattr(e, "motivation_change", 10)
-                    or setattr(e, "social_change", 5),
-            "explanation": "Entertainment value, but ongoing cost adds up."
+            or setattr(e, "motivation_change", 10)
+            or setattr(e, "social_change", 5),
+            "explanation": "Subscribe to streaming services and gaming for €40/month entertainment"
         }
     ]
 
@@ -467,29 +467,29 @@ def create_debt_options(state: GameState) -> List[Dict]:
 
     return [
         {
-            "text": f"Pay off €{debt_payment:.0f} of debt aggressively",
+            "fallback_text": f"Pay off €{debt_payment:.0f} of debt aggressively",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", -debt_payment)
             or setattr(e, "debt_change", -debt_payment)
             or setattr(e, "motivation_change", 15)
             or setattr(e, "knowledge_change", 10),
-            "explanation": "Reduce debt burden and save on interest payments."
+            "explanation": f"Pay €{debt_payment:.0f} toward debt to reduce burden and save on interest"
         },
         {
-            "text": "Make minimum payments, invest the difference",
+            "fallback_text": "Make minimum payments, invest the difference",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", -debt_payment * 0.2)
-                    or setattr(e, "debt_change", -debt_payment * 0.2)
-                    or setattr(e, "investment_change", debt_payment * 0.3)
-                    or setattr(e, "passive_income_change", 2),
-            "explanation": "If interest is low, investing might yield better returns."
+            or setattr(e, "debt_change", -debt_payment * 0.2)
+            or setattr(e, "investment_change", debt_payment * 0.3)
+            or setattr(e, "passive_income_change", 2),
+            "explanation": f"Pay minimum €{debt_payment * 0.2:.0f}, invest €{debt_payment * 0.3:.0f} for potential higher returns"
         },
         {
-            "text": "Refinance debt at a lower interest rate",
+            "fallback_text": "Refinance debt at a lower interest rate",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "debt_change", state.debts * -0.05)
-                    or setattr(e, "knowledge_change", 15),
-            "explanation": "Smart strategy reduces total interest paid over time."
+            or setattr(e, "knowledge_change", 15),
+            "explanation": f"Negotiate lower rate, effectively reducing debt by €{state.debts * 0.05:.0f} in interest savings"
         }
     ]
 
@@ -498,28 +498,28 @@ def create_social_options(state: GameState) -> List[Dict]:
     """Options for social event"""
     return [
         {
-            "text": "Host a potluck dinner party (€30)",
+            "fallback_text": "Host a potluck dinner party (€30)",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", -30)
-                    or setattr(e, "social_change", 15)
-                    or setattr(e, "energy_change", -5)
-                    or setattr(e, "motivation_change", 10),
-            "explanation": "Affordable way to connect with friends and recharge."
+            or setattr(e, "social_change", 15)
+            or setattr(e, "energy_change", -5)
+            or setattr(e, "motivation_change", 10),
+            "explanation": "Spend €30 hosting friends at home for affordable quality time"
         },
         {
-            "text": "Attend expensive concert/event (€120)",
+            "fallback_text": "Attend expensive concert/event (€120)",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", -120)
-                    or setattr(e, "social_change", 20)
-                    or setattr(e, "motivation_change", 15),
-            "explanation": "Memorable experience, but pricey."
+            or setattr(e, "social_change", 20)
+            or setattr(e, "motivation_change", 15),
+            "explanation": "Splurge €120 on an amazing concert or event for memorable experience"
         },
         {
-            "text": "Free community activities and meetups",
+            "fallback_text": "Free community activities and meetups",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "social_change", 10)
-                    or setattr(e, "energy_change", 5),
-            "explanation": "Build connections without spending money."
+            or setattr(e, "energy_change", 5),
+            "explanation": "Join free local events, park hangouts, or community groups"
         }
     ]
 
@@ -528,25 +528,25 @@ def create_education_options(state: GameState) -> List[Dict]:
     """Options for education opportunity event"""
     return [
         {
-            "text": "Take online financial literacy course (€200)",
+            "fallback_text": "Take online financial literacy course (€200)",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "money_change", -200)
-                    or setattr(e, "knowledge_change", 25)
-                    or setattr(e, "motivation_change", 10),
-            "explanation": "Knowledge is power - better financial decisions ahead."
+            or setattr(e, "knowledge_change", 25)
+            or setattr(e, "motivation_change", 10),
+            "explanation": "Invest €200 in structured financial education for better money decisions"
         },
         {
-            "text": "Read free personal finance books and blogs",
+            "fallback_text": "Read free personal finance books and blogs",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "knowledge_change", 15)
-                    or setattr(e, "motivation_change", 5),
-            "explanation": "Self-directed learning, no cost."
+            or setattr(e, "motivation_change", 5),
+            "explanation": "Self-study using library books and financial blogs at no cost"
         },
         {
-            "text": "Learn by doing, skip formal education",
+            "fallback_text": "Learn by doing, skip formal education",
             "effect": DecisionEffect(),
             "setup": lambda e: setattr(e, "knowledge_change", 5),
-            "explanation": "Experience teaches, but slower progress."
+            "explanation": "Learn through real-world experience and mistakes over time"
         }
     ]
 
@@ -559,81 +559,81 @@ def create_curveball_options(curveball: Dict, state: GameState) -> List[Dict]:
         cost = curveball["cost"]
         return [
             {
-                "text": f"Pay from savings (€{cost})",
+                "fallback_text": f"Pay from savings (€{cost})",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "money_change", -cost)
                 or setattr(e, "motivation_change", -10),
-                "explanation": "Depletes savings but handles the situation immediately."
+                "explanation": f"Use €{cost} from savings to handle this immediately"
             },
             {
-                "text": f"Use credit/take loan (€{cost})",
+                "fallback_text": f"Use credit/take loan (€{cost})",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "debt_change", cost)
                 or setattr(e, "motivation_change", -15)
                 or setattr(e, "energy_change", -5),
-                "explanation": "Keeps cash but adds debt burden and interest."
+                "explanation": f"Borrow €{cost} to cover costs, pay back with interest over time"
             },
             {
-                "text": "Try to negotiate or find cheaper alternative",
+                "fallback_text": "Try to negotiate or find cheaper alternative",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "money_change", -cost * 0.7)
-                        or setattr(e, "energy_change", -10)
-                        or setattr(e, "knowledge_change", 10),
-                "explanation": "Time and effort needed, but saves some money."
+                or setattr(e, "energy_change", -10)
+                or setattr(e, "knowledge_change", 10),
+                "explanation": f"Spend time finding deals, pay only €{cost * 0.7:.0f} instead"
             }
         ]
     elif "gain" in curveball:
         gain = curveball["gain"]
         return [
             {
-                "text": f"Save the entire €{gain}",
+                "fallback_text": f"Save the entire €{gain}",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "money_change", gain)
                 or setattr(e, "motivation_change", 5),
-                "explanation": "Boosting emergency fund or savings goal."
+                "explanation": f"Put all €{gain} windfall into savings for security"
             },
             {
-                "text": f"Invest €{gain} for long-term growth",
+                "fallback_text": f"Invest €{gain} for long-term growth",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "investment_change", gain)
                 or setattr(e, "passive_income_change", gain * 0.005)
                 or setattr(e, "knowledge_change", 5),
-                "explanation": "Put windfall to work for compound growth."
+                "explanation": f"Invest €{gain} in index funds for compound growth potential"
             },
             {
-                "text": f"Treat yourself and save half (€{gain/2:.0f})",
+                "fallback_text": f"Treat yourself and save half (€{gain/2:.0f})",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "money_change", gain * 0.5)
                 or setattr(e, "social_change", 10)
                 or setattr(e, "motivation_change", 10),
-                "explanation": "Balance between enjoying now and saving for later."
+                "explanation": f"Enjoy €{gain/2:.0f} now, save €{gain/2:.0f} for later"
             }
         ]
     elif "monthly_cost" in curveball:
         monthly_cost = curveball["monthly_cost"]
         return [
             {
-                "text": f"Accept the increase (€{monthly_cost}/month)",
+                "fallback_text": f"Accept the increase (€{monthly_cost}/month)",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "expense_change", monthly_cost)
                 or setattr(e, "motivation_change", -10),
-                "explanation": "Easiest option but increases monthly expenses."
+                "explanation": f"Pay the extra €{monthly_cost}/month without changes"
             },
             {
-                "text": "Look for alternatives or negotiate",
+                "fallback_text": "Look for alternatives or negotiate",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "expense_change", monthly_cost * 0.5)
-                        or setattr(e, "energy_change", -10)
-                        or setattr(e, "knowledge_change", 10),
-                "explanation": "Takes effort but might reduce the impact."
+                or setattr(e, "energy_change", -10)
+                or setattr(e, "knowledge_change", 10),
+                "explanation": f"Shop around and negotiate, reduce impact to €{monthly_cost * 0.5:.0f}/month"
             },
             {
-                "text": "Cut other expenses to compensate",
+                "fallback_text": "Cut other expenses to compensate",
                 "effect": DecisionEffect(),
                 "setup": lambda e: setattr(e, "expense_change", monthly_cost)
-                        or setattr(e, "social_change", -10)
-                        or setattr(e, "energy_change", -5),
-                "explanation": "Maintain budget but sacrifice elsewhere."
+                or setattr(e, "social_change", -10)
+                or setattr(e, "energy_change", -5),
+                "explanation": f"Accept €{monthly_cost}/month increase but reduce spending elsewhere"
             }
         ]
 
