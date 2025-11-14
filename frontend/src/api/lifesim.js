@@ -68,7 +68,7 @@ let mockPlayerState = {
   currentNarrative: MOCK_SCENARIOS[0].narrative,
   currentChoices: MOCK_SCENARIOS[0].choices,
   turn: 1,
-  year: 1,
+  year: 15,
   month: 1,
   assets: [],
   recentDecisions: []
@@ -99,7 +99,7 @@ export async function login(name, avatarKey = "avatar_girl_middle_school.png") {
     knowledge: 30
   };
   mockPlayerState.turn = 1;
-  mockPlayerState.year = 1;
+  mockPlayerState.year = 15;
   mockPlayerState.month = 1;
   currentScenarioIndex = 0;
   mockPlayerState.currentNarrative = MOCK_SCENARIOS[0].narrative;
@@ -269,7 +269,7 @@ export async function resetGame() {
     currentNarrative: MOCK_SCENARIOS[0].narrative,
     currentChoices: MOCK_SCENARIOS[0].choices,
     turn: 1,
-    year: 1,
+    year: 15,
     month: 1,
     assets: [],
     recentDecisions: []
