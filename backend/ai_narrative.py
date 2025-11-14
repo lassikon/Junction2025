@@ -33,6 +33,7 @@ NARRATIVE_PROMPTS = load_prompt_template("narrative_prompt.json")
 CONSEQUENCE_PROMPTS = load_prompt_template("consequence_prompt.json")
 LEARNING_PROMPTS = load_prompt_template("learning_moment_prompt.json")
 FALLBACK_NARRATIVES = load_prompt_template("fallback_narratives.json")
+OPTIONS_PROMPTS = load_prompt_template("options_prompt.json")
 
 
 def get_ai_client():
@@ -213,6 +214,105 @@ def generate_learning_moment(
     except Exception as e:
         print(f"Learning moment generation failed: {e}")
         return None
+
+
+def generate_option_texts(
+    option_descriptions: List[Dict],
+    event_type: str,
+    state: GameState,
+    profile: PlayerProfile,
+    client: Optional[genai.Client] = None
+) -> List[str]:
+    """
+    Generate varied option texts using AI while keeping effects hardcoded.
+
+    Args:
+        option_descriptions: List of option metadata with explanations
+        event_type: Type of event
+        state: Current game state
+        profile: Player profile
+        client: Gemini client (optional)
+
+    Returns:
+        List of AI-generated option texts
+    """
+    if client is None:
+        client = get_ai_client()
+
+    # Fallback to default texts if no AI
+    if client is None:
+        return [opt.get("fallback_text", opt["explanation"]) for opt in option_descriptions]
+
+    try:
+        # Build prompt for option generation
+        options_context = "\n".join([
+            f"{i+1}. {opt['explanation']}"
+            for i, opt in enumerate(option_descriptions)
+        ])
+
+        # Build prompt from template
+        template_filled = OPTIONS_PROMPTS['template'].format(
+            age=profile.age,
+            city=profile.city,
+            education=profile.education_path.value,
+            risk_attitude=profile.risk_attitude.value,
+            money=state.money,
+            monthly_income=state.monthly_income,
+            monthly_expenses=state.monthly_expenses,
+            fi_score=state.fi_score,
+            event_type=event_type,
+            options_context=options_context
+        )
+
+        prompt = f"""{OPTIONS_PROMPTS['system_context']}
+
+{template_filled}
+
+{OPTIONS_PROMPTS['instruction']}
+
+{OPTIONS_PROMPTS['format_instruction']}"""
+
+        print("\n" + "="*80)
+        print("🤖 GEMINI API CALL - Option Texts")
+        print("="*80)
+        print("PROMPT:")
+        print(prompt)
+        print("\n" + "-"*80)
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp",
+            contents=prompt
+        )
+
+        print("RESPONSE:")
+        print(response.text.strip())
+        print("="*80 + "\n")
+
+        # Parse the response
+        lines = response.text.strip().split('\n')
+        generated_options = []
+
+        for line in lines:
+            line = line.strip()
+            # Remove numbering (1., 2., etc.) and asterisks
+            if line and (line[0].isdigit() or line.startswith('*') or line.startswith('-')):
+                # Remove leading number and punctuation
+                cleaned = line.lstrip('0123456789.*- ').strip()
+                if cleaned:
+                    generated_options.append(cleaned)
+
+        # If we got the right number of options, use them
+        if len(generated_options) == len(option_descriptions):
+            return generated_options
+
+        # Otherwise fallback to explanations
+        print(
+            f"Warning: Generated {len(generated_options)} options but expected {len(option_descriptions)}, using fallbacks")
+        return [opt.get("fallback_text", opt["explanation"]) for opt in option_descriptions]
+
+    except Exception as e:
+        print(f"Option text generation failed: {e}")
+        return [opt.get("fallback_text", opt["explanation"]) for opt in option_descriptions]
 
 
 def build_narrative_prompt(

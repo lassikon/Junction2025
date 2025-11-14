@@ -94,14 +94,15 @@ function App() {
     setShowDecisionModal(true);
   };
 
-  const handleChooseOption = async (chosenOption) => {
+  const handleChooseOption = async (chosenOption, optionIndex) => {
     setLoading(true);
     setError(null);
     
     try {
       const response = await axios.post(`${API_URL}/api/step`, {
         session_id: gameState.session_id,
-        chosen_option: chosenOption
+        chosen_option: chosenOption,
+        option_index: optionIndex
       });
       
       const decisionResponse = response.data;
@@ -209,7 +210,7 @@ function App() {
                       <button
                         key={index}
                         className="option-button"
-                        onClick={() => handleChooseOption(option)}
+                        onClick={() => handleChooseOption(option, index)}
                         disabled={loading}
                       >
                         {option}
