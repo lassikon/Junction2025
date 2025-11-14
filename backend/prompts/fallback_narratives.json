@@ -1,0 +1,21 @@
+{
+  "first_paycheck": "Congratulations! Your first paycheck of €{monthly_income} just hit your account. This is an exciting moment - your hard work is paying off! How will you handle this money?",
+  
+  "budget_decision": "You've been tracking your spending and noticed it's time to get more intentional with your budget. With €{monthly_income} coming in monthly and €{monthly_expenses} going out, what's your strategy?",
+  
+  "emergency_fund": "You've been thinking about financial security. Experts recommend having 3-6 months of expenses saved for emergencies. That would be €{target} for you. How will you approach this?",
+  
+  "investment_opportunity": "You've learned about investing and compound interest. With €{money} in your account, you're wondering if it's time to put some money to work in the market. What's your move?",
+  
+  "career_opportunity": "An opportunity has come up at work. You could take on more responsibility, invest in training, or maintain your current balance. Each option has trade-offs. What do you choose?",
+  
+  "lifestyle_choice": "You're thinking about how to spend your free time and money. Investing in yourself through fitness, hobbies, or education could pay dividends, but so could saving that money. What feels right?",
+  
+  "debt_management": "You currently have €{debts} in debt. It's weighing on your mind. Should you aggressively pay it down, or focus on other financial goals? Let's think strategically.",
+  
+  "social_event": "Friends are making plans and you want to join. Maintaining relationships is important for happiness, but it often costs money. How do you balance social life with financial goals?",
+  
+  "education_opportunity": "You've been thinking about improving your financial knowledge. There are courses, books, and free resources available. Investing in your financial education could help you make better decisions. What's your approach?",
+  
+  "default": "A new situation has come up. What will you do?"
+}

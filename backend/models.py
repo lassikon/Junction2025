@@ -245,6 +245,18 @@ class GameStateResponse(SQLModel):
     game_status: GameStatus
 
 
+class OnboardingResponse(SQLModel):
+    """Response model for onboarding with initial narrative"""
+    game_state: GameStateResponse
+    initial_narrative: str
+    initial_options: List[str]
+    financial_knowledge: int
+
+    # Assets and status
+    assets: dict
+    game_status: GameStatus
+
+
 class DecisionRequest(SQLModel):
     """Request model for making a decision"""
     session_id: str
