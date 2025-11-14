@@ -26,11 +26,11 @@ const GameDashboard = ({ gameState, onMakeDecision }) => {
   } = gameState;
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('fi-FI', {
-      style: 'currency',
-      currency: 'EUR',
+    return new Intl.NumberFormat("fi-FI", {
+      style: "currency",
+      currency: "EUR",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -65,13 +65,13 @@ const GameDashboard = ({ gameState, onMakeDecision }) => {
             {fi_score.toFixed(1)}%
           </div>
           <p className="fi-score-description">
-            {fi_score >= 100 
-              ? "🎉 You've achieved Financial Independence!" 
+            {fi_score >= 100
+              ? "🎉 You've achieved Financial Independence!"
               : `${(100 - fi_score).toFixed(0)}% to go until FI!`}
           </p>
           <div className="fi-progress-bar">
-            <div 
-              className="fi-progress-fill" 
+            <div
+              className="fi-progress-fill"
               style={{ width: `${Math.min(fi_score, 100)}%` }}
             />
           </div>
@@ -139,7 +139,7 @@ const GameDashboard = ({ gameState, onMakeDecision }) => {
               <span className="life-metric-label">Energy</span>
             </div>
             <div className="life-metric-bar">
-              <div 
+              <div
                 className={`life-metric-fill ${getStatusColor(energy)}`}
                 style={{ width: `${energy}%` }}
               >
@@ -154,7 +154,7 @@ const GameDashboard = ({ gameState, onMakeDecision }) => {
               <span className="life-metric-label">Motivation</span>
             </div>
             <div className="life-metric-bar">
-              <div 
+              <div
                 className={`life-metric-fill ${getStatusColor(motivation)}`}
                 style={{ width: `${motivation}%` }}
               >
@@ -169,7 +169,7 @@ const GameDashboard = ({ gameState, onMakeDecision }) => {
               <span className="life-metric-label">Social Life</span>
             </div>
             <div className="life-metric-bar">
-              <div 
+              <div
                 className={`life-metric-fill ${getStatusColor(social_life)}`}
                 style={{ width: `${social_life}%` }}
               >
@@ -184,8 +184,10 @@ const GameDashboard = ({ gameState, onMakeDecision }) => {
               <span className="life-metric-label">Financial Knowledge</span>
             </div>
             <div className="life-metric-bar">
-              <div 
-                className={`life-metric-fill ${getStatusColor(financial_knowledge)}`}
+              <div
+                className={`life-metric-fill ${getStatusColor(
+                  financial_knowledge
+                )}`}
                 style={{ width: `${financial_knowledge}%` }}
               >
                 <span className="life-metric-value">{financial_knowledge}</span>
