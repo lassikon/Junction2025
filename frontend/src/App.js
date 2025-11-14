@@ -29,7 +29,7 @@ function App() {
     try {
       const response = await axios.post(`${API_URL}/api/chat`, {
         message: message,
-        model: 'gpt-3.5-turbo'
+        model: 'gemini-2.5-flash-lite'
       });
 
       const aiMessage = { role: 'assistant', content: response.data.response };
