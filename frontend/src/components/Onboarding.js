@@ -59,9 +59,8 @@ const ASPIRATION_OPTIONS = [
   { key: "help_family", label: "Help Family", icon: "👨‍👩‍👧‍👦" },
 ];
 
-const Onboarding = ({ onComplete, onError }) => {
+const Onboarding = ({ onComplete, isLoading = false }) => {
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     player_name: "",
     age: 25,
@@ -90,7 +89,6 @@ const Onboarding = ({ onComplete, onError }) => {
   };
 
   const handleSubmit = async () => {
-    setLoading(true);
     try {
       // Convert aspirations object to boolean values
       const aspirationsData = {};
@@ -106,11 +104,7 @@ const Onboarding = ({ onComplete, onError }) => {
       await onComplete(payload);
     } catch (error) {
       console.error("Error submitting onboarding:", error);
-      if (onError) {
-        onError(error);
-      }
-    } finally {
-      setLoading(false);
+      // Error handling is now done in App.js via TanStack Query
     }
   };
 
@@ -383,17 +377,17 @@ const Onboarding = ({ onComplete, onError }) => {
         <div className="button-group">
           <button
             onClick={handleBack}
-            disabled={step === 1 || loading}
+            disabled={step === 1 || isLoading}
             className="btn btn-secondary"
           >
             Back
           </button>
           <button
             onClick={handleNext}
-            disabled={!isStepValid() || loading}
+            disabled={!isStepValid() || isLoading}
             className="btn btn-primary"
           >
-            {loading
+            {isLoading
               ? "Creating..."
               : step === totalSteps
               ? "Start Journey"
