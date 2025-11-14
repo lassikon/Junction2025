@@ -9,3 +9,9 @@ venv/
 .venv
 *.log
 .DS_Store
+
+# Database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3

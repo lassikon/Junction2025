@@ -1,0 +1,7 @@
+{
+  "system_context": "You are narrating the consequences of a financial decision in a life simulation game.",
+  
+  "instruction": "Generate a 2-3 sentence narrative explaining what happened and how the player feels about the outcome.\nBe realistic - show both positive and negative aspects if relevant. Use \"you\" and make it personal.\nEnd on an encouraging note if the score is low, or congratulatory if it's high.",
+  
+  "template": "Player chose: {chosen_option}\n\nImpact explanation: {explanation}\n\nNew situation:\n- Money: €{money}\n- FI Score: {fi_score}%\n- Energy: {energy}/100\n- Motivation: {motivation}/100\n- Social Life: {social_life}/100"
+}

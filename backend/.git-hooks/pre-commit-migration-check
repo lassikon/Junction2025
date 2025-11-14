@@ -1,0 +1,23 @@
+#!/bin/bash
+# Git pre-commit hook to remind about migrations
+# Copy this to .git/hooks/pre-commit and make it executable
+
+# Check if models.py was modified
+if git diff --cached --name-only | grep -q "backend/models.py"; then
+    # Check if any migration files were also modified/added
+    if ! git diff --cached --name-only | grep -q "backend/alembic/versions/"; then
+        echo ""
+        echo "⚠️  WARNING: You modified models.py but didn't add any migrations!"
+        echo ""
+        echo "Did you forget to create a migration?"
+        echo "Run: make migrate MSG='describe your changes'"
+        echo ""
+        read -p "Continue anyway? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+fi
+
+exit 0

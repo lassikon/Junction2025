@@ -1,97 +1,278 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import './App.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import React, { useEffect } from "react";
+import "./App.css";
+import Onboarding from "./components/Onboarding";
+import GameDashboard from "./components/GameDashboard";
+import { useGameStore } from "./store/gameStore";
+import {
+  usePlayerState,
+  useOnboarding,
+  useMakeDecision,
+  useHealthCheck,
+} from "./api/gameApi";
 
 function App() {
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [apiStatus, setApiStatus] = useState('checking');
+  // ===================================
+  // ZUSTAND: Local UI state
+  // ===================================
+  const {
+    sessionId,
+    setSessionId,
+    showOnboarding,
+    setShowOnboarding,
+    showDecisionModal,
+    openDecisionModal,
+    closeDecisionModal,
+    showConsequenceModal,
+    closeConsequenceModal,
+    consequenceData,
+    setConsequenceData,
+    currentNarrative,
+    currentOptions,
+    setNarrativeAndOptions,
+    resetGame,
+  } = useGameStore();
 
+  // ===================================
+  // TANSTACK QUERY: Server state
+  // ===================================
+  const { data: healthStatus } = useHealthCheck();
+  const { data: playerState, isLoading: isLoadingPlayerState } =
+    usePlayerState(sessionId);
+  const onboardingMutation = useOnboarding();
+  const decisionMutation = useMakeDecision();
+
+  // ===================================
+  // API STATUS
+  // ===================================
+  const apiStatus =
+    healthStatus?.status === "healthy" ? "connected" : "disconnected";
+
+  // ===================================
+  // CHECK FOR EXISTING SESSION ON MOUNT
+  // ===================================
   useEffect(() => {
-    // Check API health on mount
-    axios.get(`${API_URL}/health`)
-      .then(() => setApiStatus('connected'))
-      .catch(() => setApiStatus('disconnected'));
-  }, []);
+    if (sessionId) {
+      setShowOnboarding(false);
+    }
+  }, [sessionId, setShowOnboarding]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!message.trim()) return;
+  // ===================================
+  // HANDLERS
+  // ===================================
 
-    const userMessage = { role: 'user', content: message };
-    setMessages(prev => [...prev, userMessage]);
-    setMessage('');
-    setLoading(true);
-
+  /**
+   * Handle onboarding completion
+   */
+  const handleOnboardingComplete = async (onboardingData) => {
     try {
-      const response = await axios.post(`${API_URL}/api/chat`, {
-        message: message,
-        model: 'gpt-3.5-turbo'
-      });
+      const result = await onboardingMutation.mutateAsync(onboardingData);
 
-      const aiMessage = { role: 'assistant', content: response.data.response };
-      setMessages(prev => [...prev, aiMessage]);
+      // Save session ID to Zustand store (will persist to localStorage)
+      setSessionId(result.game_state.session_id);
+
+      // Store initial narrative and options
+      setNarrativeAndOptions(result.initial_narrative, result.initial_options);
+
+      // Hide onboarding
+      setShowOnboarding(false);
+
+      console.log("✅ Game initialized successfully");
     } catch (error) {
-      console.error('Error:', error);
-      const errorMessage = { 
-        role: 'error', 
-        content: 'Failed to get response from API' 
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
+      console.error("❌ Onboarding failed:", error);
+      throw error; // Let Onboarding component handle error display
     }
   };
 
+  /**
+   * Open decision modal
+   */
+  const handleMakeDecision = () => {
+    openDecisionModal();
+  };
+
+  /**
+   * Handle option selection
+   */
+  const handleChooseOption = async (chosenOption) => {
+    try {
+      const result = await decisionMutation.mutateAsync({
+        sessionId,
+        chosenOption,
+      });
+
+      // Close decision modal
+      closeDecisionModal();
+
+      // Store consequence data and open consequence modal
+      setConsequenceData({
+        consequence: result.consequence_narrative,
+        learningMoment: result.learning_moment,
+      });
+
+      // Store next narrative and options
+      setNarrativeAndOptions(result.next_narrative, result.next_options);
+
+      console.log("✅ Decision processed successfully");
+    } catch (error) {
+      console.error("❌ Decision processing failed:", error);
+    }
+  };
+
+  /**
+   * Close consequence modal and continue to next decision
+   */
+  const handleCloseConsequence = () => {
+    closeConsequenceModal();
+  };
+
+  /**
+   * Start a new game
+   */
+  const handleNewGame = () => {
+    // Clear all state
+    resetGame();
+
+    // Force reload to ensure clean slate
+    window.location.reload();
+  };
+
+  // ===================================
+  // RENDER: Onboarding
+  // ===================================
+  if (showOnboarding) {
+    return (
+      <div className="App">
+        {onboardingMutation.isError && (
+          <div className="error-banner">
+            <p>
+              {onboardingMutation.error?.response?.data?.detail ||
+                "Failed to initialize game. Please try again."}
+            </p>
+            <button onClick={() => onboardingMutation.reset()}>✕</button>
+          </div>
+        )}
+
+        <Onboarding
+          onComplete={handleOnboardingComplete}
+          isLoading={onboardingMutation.isPending}
+        />
+      </div>
+    );
+  }
+
+  // ===================================
+  // RENDER: Game Dashboard
+  // ===================================
   return (
     <div className="App">
-      <div className="container">
-        <header className="header">
-          <h1>🤖 AI Hackathon Chat</h1>
-          <div className={`status status-${apiStatus}`}>
-            API: {apiStatus}
-          </div>
-        </header>
-
-        <div className="chat-container">
-          <div className="messages">
-            {messages.length === 0 ? (
-              <div className="welcome">
-                <h2>Welcome to the AI Hackathon! 🚀</h2>
-                <p>Start chatting to test the API connection</p>
-              </div>
-            ) : (
-              messages.map((msg, idx) => (
-                <div key={idx} className={`message ${msg.role}`}>
-                  <div className="message-content">{msg.content}</div>
-                </div>
-              ))
-            )}
-            {loading && (
-              <div className="message assistant">
-                <div className="message-content loading">Thinking...</div>
-              </div>
-            )}
-          </div>
-
-          <form onSubmit={handleSubmit} className="input-form">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type your message..."
-              disabled={loading}
-              className="input"
-            />
-            <button type="submit" disabled={loading || !message.trim()} className="button">
-              Send
-            </button>
-          </form>
-        </div>
+      {/* API Status Bar */}
+      <div className="api-status-bar">
+        <div className={`status status-${apiStatus}`}>API: {apiStatus}</div>
+        <button onClick={handleNewGame} className="btn-new-game">
+          New Game
+        </button>
       </div>
+
+      {/* Error Banner for Decision Errors */}
+      {decisionMutation.isError && (
+        <div className="error-banner">
+          <p>
+            {decisionMutation.error?.response?.data?.detail ||
+              "Failed to process decision. Please try again."}
+          </p>
+          <button onClick={() => decisionMutation.reset()}>✕</button>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {isLoadingPlayerState && (
+        <div className="loading-overlay">
+          <div className="loading-spinner">Loading game state...</div>
+        </div>
+      )}
+
+      {/* Game Dashboard */}
+      {playerState && (
+        <>
+          <GameDashboard
+            gameState={playerState}
+            onMakeDecision={handleMakeDecision}
+          />
+
+          {/* Decision Modal */}
+          {showDecisionModal && !showConsequenceModal && (
+            <div className="modal-overlay" onClick={closeDecisionModal}>
+              <div
+                className="modal-content"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button className="modal-close" onClick={closeDecisionModal}>
+                  ×
+                </button>
+
+                <div className="narrative-section">
+                  <h2>📖 Your Story</h2>
+                  <p className="narrative-text">{currentNarrative}</p>
+                </div>
+
+                <div className="options-section">
+                  <h3>What will you do?</h3>
+                  <div className="options-grid">
+                    {currentOptions.map((option, index) => (
+                      <button
+                        key={index}
+                        className="option-button"
+                        onClick={() => handleChooseOption(option)}
+                        disabled={decisionMutation.isPending}
+                      >
+                        {decisionMutation.isPending ? "Processing..." : option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Consequence Modal */}
+          {showConsequenceModal && consequenceData && (
+            <div className="modal-overlay" onClick={handleCloseConsequence}>
+              <div
+                className="modal-content"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  className="modal-close"
+                  onClick={handleCloseConsequence}
+                >
+                  ×
+                </button>
+
+                <div className="consequence-section">
+                  <h2>📊 Result</h2>
+                  <p className="consequence-text">
+                    {consequenceData.consequence}
+                  </p>
+
+                  {consequenceData.learningMoment && (
+                    <div className="learning-moment">
+                      <h3>💡 Learning Moment</h3>
+                      <p>{consequenceData.learningMoment}</p>
+                    </div>
+                  )}
+
+                  <button
+                    className="btn-continue"
+                    onClick={handleCloseConsequence}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
