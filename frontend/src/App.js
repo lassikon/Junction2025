@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./App.css";
+import Onboarding from "./components/Onboarding";
+import GameDashboard from "./components/GameDashboard";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
@@ -9,9 +11,9 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState("checking");
-  const [userName, setUserName] = useState("");
-  const [userCreated, setUserCreated] = useState(false);
-  const [userInput, setUserInput] = useState("");
+  const [gameState, setGameState] = useState(null);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     // Check API health on mount
@@ -19,144 +21,109 @@ function App() {
       .get(`${API_URL}/health`)
       .then(() => setApiStatus("connected"))
       .catch(() => setApiStatus("disconnected"));
+
+    // Check if there's an existing game session in localStorage
+    const savedSessionId = localStorage.getItem("lifesim_session_id");
+    const savedGameState = localStorage.getItem("lifesim_game_state");
+    
+    if (savedSessionId && savedGameState) {
+      try {
+        setGameState(JSON.parse(savedGameState));
+        setShowOnboarding(false);
+      } catch (e) {
+        console.error("Error parsing saved game state:", e);
+        localStorage.removeItem("lifesim_session_id");
+        localStorage.removeItem("lifesim_game_state");
+      }
+    }
   }, []);
 
-  const handleCreateUser = async (e) => {
-    e.preventDefault();
-    if (!userInput.trim()) return;
-
+  const handleOnboardingComplete = async (onboardingData) => {
     setLoading(true);
+    setError(null);
+    
     try {
-      const response = await axios.post(`${API_URL}/api/users`, {
-        name: userInput,
-      });
-      setUserName(response.data.name || userInput);
-      setUserCreated(true);
+      const response = await axios.post(`${API_URL}/api/onboarding`, onboardingData);
+      const newGameState = response.data;
+      
+      // Save to state
+      setGameState(newGameState);
+      setShowOnboarding(false);
+      
+      // Save to localStorage for persistence
+      localStorage.setItem("lifesim_session_id", newGameState.session_id);
+      localStorage.setItem("lifesim_game_state", JSON.stringify(newGameState));
+      
+      console.log("Game initialized successfully:", newGameState);
     } catch (error) {
-      console.error("Error creating user:", error);
-      alert("Failed to create user. Please try again.");
+      console.error("Error during onboarding:", error);
+      setError(error.response?.data?.detail || "Failed to initialize game. Please try again.");
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!message.trim()) return;
-
-    const userMessage = { role: "user", content: message };
-    setMessages((prev) => [...prev, userMessage]);
-    setMessage("");
-    setLoading(true);
-
-    try {
-      const response = await axios.post(`${API_URL}/api/chat`, {
-        message: message,
-        model: "gemini-2.5-flash-lite",
-      });
-
-      const aiMessage = { role: "assistant", content: response.data.response };
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (error) {
-      console.error("Error:", error);
-      const errorMessage = {
-        role: "error",
-        content: "Failed to get response from API",
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
+  const handleOnboardingError = (error) => {
+    setError(error.response?.data?.detail || "An error occurred during onboarding.");
   };
 
-  // Show user creation form if user hasn't been created yet
-  if (!userCreated) {
+  const handleMakeDecision = () => {
+    // Placeholder for decision-making functionality
+    alert("Decision making feature coming soon!");
+  };
+
+  const handleNewGame = () => {
+    localStorage.removeItem("lifesim_session_id");
+    localStorage.removeItem("lifesim_game_state");
+    setGameState(null);
+    setShowOnboarding(true);
+    setError(null);
+  };
+
+  // Show onboarding if no game state exists
+  if (showOnboarding) {
     return (
       <div className="App">
-        <div className="container">
-          <header className="header">
-            <h1>🤖 AI Hackathon Chat</h1>
-            <div className={`status status-${apiStatus}`}>API: {apiStatus}</div>
-          </header>
-
-          <div className="chat-container">
-            <div className="welcome">
-              <h2>Welcome! 👋</h2>
-              <p>Please enter your name to get started</p>
-              <form onSubmit={handleCreateUser} className="input-form">
-                <input
-                  type="text"
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  placeholder="Enter your name..."
-                  disabled={loading}
-                  className="input"
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  disabled={loading || !userInput.trim()}
-                  className="button"
-                >
-                  {loading ? "Creating..." : "Create User"}
-                </button>
-              </form>
-            </div>
+        {error && (
+          <div className="error-banner">
+            <p>{error}</p>
+            <button onClick={() => setError(null)}>✕</button>
           </div>
-        </div>
+        )}
+        <Onboarding 
+          onComplete={handleOnboardingComplete}
+          onError={handleOnboardingError}
+        />
       </div>
     );
   }
 
+  // Show game dashboard if game state exists
   return (
     <div className="App">
-      <div className="container">
-        <header className="header">
-          <h1>🤖 AI Hackathon Chat</h1>
-          <div className={`status status-${apiStatus}`}>API: {apiStatus}</div>
-          {userName && <p className="user-name">Logged in as: {userName}</p>}
-        </header>
-
-        <div className="chat-container">
-          <div className="messages">
-            {messages.length === 0 ? (
-              <div className="welcome">
-                <h2>Welcome to the AI Hackathon! 🚀</h2>
-                <p>Start chatting to test the API connection</p>
-              </div>
-            ) : (
-              messages.map((msg, idx) => (
-                <div key={idx} className={`message ${msg.role}`}>
-                  <div className="message-content">{msg.content}</div>
-                </div>
-              ))
-            )}
-            {loading && (
-              <div className="message assistant">
-                <div className="message-content loading">Thinking...</div>
-              </div>
-            )}
-          </div>
-
-          <form onSubmit={handleSubmit} className="input-form">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type your message..."
-              disabled={loading}
-              className="input"
-            />
-            <button
-              type="submit"
-              disabled={loading || !message.trim()}
-              className="button"
-            >
-              Send
-            </button>
-          </form>
+      <div className="api-status-bar">
+        <div className={`status status-${apiStatus}`}>
+          API: {apiStatus}
         </div>
+        <button onClick={handleNewGame} className="btn-new-game">
+          New Game
+        </button>
       </div>
+      
+      {error && (
+        <div className="error-banner">
+          <p>{error}</p>
+          <button onClick={() => setError(null)}>✕</button>
+        </div>
+      )}
+      
+      {gameState && (
+        <GameDashboard 
+          gameState={gameState}
+          onMakeDecision={handleMakeDecision}
+        />
+      )}
     </div>
   );
 }

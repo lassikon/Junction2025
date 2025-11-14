@@ -40,7 +40,6 @@ app = FastAPI(
 
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-print("GEMINI_API_KEY:", GEMINI_API_KEY)
 if GEMINI_API_KEY:
     client = genai.Client(api_key=GEMINI_API_KEY)
 else:
@@ -86,7 +85,7 @@ async def health():
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(chat_message: ChatMessage, session: Session = Depends(get_session)):
+async def chat(chat_message: ChatMessage, session: AsyncSession = Depends(get_session)):
     """
     Basic chat endpoint - integrate with OpenAI, Anthropic, or other LLM providers
     """
