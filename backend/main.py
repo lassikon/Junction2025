@@ -1,13 +1,22 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import os
 from dotenv import load_dotenv
+from google import genai
 
 load_dotenv()
 
 app = FastAPI(title="AI Hackathon API")
+
+# Configure Gemini API
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+print("GEMINI_API_KEY:", GEMINI_API_KEY)
+if GEMINI_API_KEY:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+else:
+    client = None
 
 # CORS middleware for React frontend
 app.add_middleware(
@@ -21,7 +30,7 @@ app.add_middleware(
 
 class ChatMessage(BaseModel):
     message: str
-    model: Optional[str] = "gpt-3.5-turbo"
+    model: Optional[str] = "gemini-2.0-flash-exp"
 
 
 class ChatResponse(BaseModel):
@@ -44,11 +53,41 @@ async def chat(chat_message: ChatMessage):
     """
     Basic chat endpoint - integrate with OpenAI, Anthropic, or other LLM providers
     """
-    # TODO: Implement your LLM integration here
-    return ChatResponse(
-        response=f"Echo: {chat_message.message}",
-        model=chat_message.model
-    )
+    try:
+        if not GEMINI_API_KEY or not client:
+            raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+        
+        # Map of valid Gemini models
+        valid_models = ["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"]
+        
+        # Use default model if provided model is not a Gemini model
+        model_to_use = chat_message.model if chat_message.model in valid_models else "gemini-2.0-flash-exp"
+        
+        print("Requested model:", chat_message.model)
+        print("Using model:", model_to_use)
+        print("Message:", chat_message.message)
+        
+        # Generate response using the new genai.Client API
+        response = client.models.generate_content(
+            model=model_to_use,
+            contents=chat_message.message
+        )
+        
+        print("Response object:", response)
+        print("Response text:", response.text)
+        
+        return ChatResponse(
+            response=response.text,
+            model=chat_message.model
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("Error details:", str(e))
+        print("Error type:", type(e).__name__)
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
 
 
 @app.get("/api/models")
@@ -58,8 +97,9 @@ async def list_models():
     """
     return {
         "models": [
-            {"id": "gpt-3.5-turbo", "name": "GPT-3.5 Turbo"},
-            {"id": "gpt-4", "name": "GPT-4"},
-            {"id": "claude-3-sonnet", "name": "Claude 3 Sonnet"},
+            {"id": "gemini-2.0-flash-exp", "name": "Gemini 2.0 Flash (Experimental)"},
+            {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro"},
+            {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash"},
+            {"id": "gemini-pro", "name": "Gemini Pro"},
         ]
     }
