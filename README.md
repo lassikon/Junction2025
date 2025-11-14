@@ -38,8 +38,14 @@ docker-compose down
 .
 ├── backend/
 │   ├── Dockerfile
-│   ├── main.py              # FastAPI application
+│   ├── main.py              # FastAPI application with game endpoints
+│   ├── models.py            # SQLModel database models
+│   ├── database.py          # Database configuration & sessions
+│   ├── utils.py             # Game mechanics & calculations
+│   ├── test_db.py           # Database test script
 │   ├── requirements.txt     # Python dependencies
+│   ├── DATABASE.md          # Database documentation
+│   ├── IMPLEMENTATION_SUMMARY.md  # Setup summary
 │   └── .env                 # Environment variables (create this)
 ├── frontend/
 │   ├── Dockerfile
@@ -49,6 +55,8 @@ docker-compose down
 │       ├── App.js           # Main React component
 │       ├── App.css
 │       └── index.js
+├── docs/
+│   └── LifeSim_Financial_Independence_Quest_Plan.md  # Project plan
 └── docker-compose.yml       # Docker orchestration
 ```
 
@@ -72,6 +80,13 @@ docker-compose down
 **GET** `/health` - Health check
 **POST** `/api/chat` - Chat with AI
 **GET** `/api/models` - List available models
+
+#### LifeSim Game Endpoints
+**POST** `/api/onboarding` - Create new player and initialize game
+**GET** `/api/game/{session_id}` - Get current game state
+**GET** `/api/leaderboard` - Get top players
+
+See `backend/DATABASE.md` for complete API documentation.
 
 ## 🧪 Testing the Setup
 
