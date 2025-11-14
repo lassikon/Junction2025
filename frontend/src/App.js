@@ -25,7 +25,7 @@ function App() {
     // Check if there's an existing game session in localStorage
     const savedSessionId = localStorage.getItem("lifesim_session_id");
     const savedGameState = localStorage.getItem("lifesim_game_state");
-    
+
     if (savedSessionId && savedGameState) {
       try {
         setGameState(JSON.parse(savedGameState));
@@ -41,23 +41,29 @@ function App() {
   const handleOnboardingComplete = async (onboardingData) => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const response = await axios.post(`${API_URL}/api/onboarding`, onboardingData);
+      const response = await axios.post(
+        `${API_URL}/api/onboarding`,
+        onboardingData
+      );
       const newGameState = response.data;
-      
+
       // Save to state
       setGameState(newGameState);
       setShowOnboarding(false);
-      
+
       // Save to localStorage for persistence
       localStorage.setItem("lifesim_session_id", newGameState.session_id);
       localStorage.setItem("lifesim_game_state", JSON.stringify(newGameState));
-      
+
       console.log("Game initialized successfully:", newGameState);
     } catch (error) {
       console.error("Error during onboarding:", error);
-      setError(error.response?.data?.detail || "Failed to initialize game. Please try again.");
+      setError(
+        error.response?.data?.detail ||
+          "Failed to initialize game. Please try again."
+      );
       throw error;
     } finally {
       setLoading(false);
@@ -65,7 +71,9 @@ function App() {
   };
 
   const handleOnboardingError = (error) => {
-    setError(error.response?.data?.detail || "An error occurred during onboarding.");
+    setError(
+      error.response?.data?.detail || "An error occurred during onboarding."
+    );
   };
 
   const handleMakeDecision = () => {
@@ -91,7 +99,7 @@ function App() {
             <button onClick={() => setError(null)}>✕</button>
           </div>
         )}
-        <Onboarding 
+        <Onboarding
           onComplete={handleOnboardingComplete}
           onError={handleOnboardingError}
         />
@@ -103,23 +111,21 @@ function App() {
   return (
     <div className="App">
       <div className="api-status-bar">
-        <div className={`status status-${apiStatus}`}>
-          API: {apiStatus}
-        </div>
+        <div className={`status status-${apiStatus}`}>API: {apiStatus}</div>
         <button onClick={handleNewGame} className="btn-new-game">
           New Game
         </button>
       </div>
-      
+
       {error && (
         <div className="error-banner">
           <p>{error}</p>
           <button onClick={() => setError(null)}>✕</button>
         </div>
       )}
-      
+
       {gameState && (
-        <GameDashboard 
+        <GameDashboard
           gameState={gameState}
           onMakeDecision={handleMakeDecision}
         />
