@@ -11,9 +11,18 @@ from sqlmodel import select
 from database import init_db, close_db, get_session
 from models import (
     PlayerProfile, GameState, DecisionHistory, LeaderboardEntry,
-    OnboardingRequest, GameStateResponse, GameStatus
+    OnboardingRequest, GameStateResponse, OnboardingResponse, GameStatus,
+    DecisionRequest, DecisionResponse
 )
 from utils import initialize_game_state, generate_session_id, calculate_fi_score
+from game_engine import (
+    get_event_type, create_decision_options, apply_decision_effects,
+    setup_option_effect, generate_curveball_event
+)
+from ai_narrative import (
+    generate_event_narrative, generate_consequence_narrative,
+    generate_learning_moment
+)
 
 load_dotenv()
 
@@ -141,7 +150,7 @@ async def list_models():
 # LifeSim Game Endpoints
 # =====================================================
 
-@app.post("/api/onboarding", response_model=GameStateResponse)
+@app.post("/api/onboarding", response_model=OnboardingResponse)
 async def create_player(
     request: OnboardingRequest,
     session: AsyncSession = Depends(get_session)
@@ -149,6 +158,7 @@ async def create_player(
     """
     Create a new player profile and initialize game state.
     This is the first endpoint called when starting a new game.
+    Returns initial game state, narrative, and first set of options.
     """
     try:
         # Generate unique session ID
@@ -186,8 +196,23 @@ async def create_player(
         await session.commit()
         await session.refresh(game_state)
 
-        # Return initial game state
-        return GameStateResponse(
+        # Generate initial narrative and options
+        initial_event_type = get_event_type(game_state, profile)
+
+        initial_narrative = generate_event_narrative(
+            event_type=initial_event_type,
+            state=game_state,
+            profile=profile,
+            curveball=None,
+            client=client
+        )
+
+        initial_options_data = create_decision_options(
+            initial_event_type, game_state, None)
+        initial_options = [opt["text"] for opt in initial_options_data]
+
+        # Build game state response
+        game_state_response = GameStateResponse(
             session_id=session_id,
             current_step=game_state.current_step,
             money=game_state.money,
@@ -205,8 +230,16 @@ async def create_player(
             game_status=game_state.game_status
         )
 
+        return OnboardingResponse(
+            game_state=game_state_response,
+            initial_narrative=initial_narrative,
+            initial_options=initial_options
+        )
+
     except Exception as e:
         await session.rollback()
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500, detail=f"Error creating player: {str(e)}")
 
@@ -295,3 +328,178 @@ async def get_leaderboard(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error retrieving leaderboard: {str(e)}")
+
+
+@app.post("/api/step", response_model=DecisionResponse)
+async def process_decision(
+    request: DecisionRequest,
+    db_session: AsyncSession = Depends(get_session)
+):
+    """
+    Process a player's decision and progress the game.
+
+    This endpoint:
+    1. Retrieves current game state
+    2. Applies the chosen decision's effects
+    3. Records the decision in history
+    4. Generates the next event and options
+    5. Returns updated state and next narrative
+    """
+    try:
+        # Get player profile and game state
+        result = await db_session.execute(
+            select(PlayerProfile).where(
+                PlayerProfile.session_id == request.session_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        result = await db_session.execute(
+            select(GameState).where(GameState.profile_id == profile.id)
+        )
+        game_state = result.scalar_one_or_none()
+
+        if not game_state:
+            raise HTTPException(status_code=404, detail="Game state not found")
+
+        if game_state.game_status != GameStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="Game is not active")
+
+        # Get the current event type for this step
+        # (We need to recreate it to find the matching option)
+        current_event_type = get_event_type(game_state, profile)
+
+        # Generate curveball if needed
+        curveball = None
+        if current_event_type == "curveball":
+            curveball = generate_curveball_event(game_state)
+
+        # Get available options for current state
+        available_options = create_decision_options(
+            current_event_type, game_state, curveball)
+
+        # Find the chosen option
+        chosen_option_data = None
+        for option in available_options:
+            if option["text"] == request.chosen_option:
+                chosen_option_data = option
+                break
+
+        if not chosen_option_data:
+            raise HTTPException(
+                status_code=400, detail="Invalid option chosen")
+
+        # Store state before changes
+        money_before = game_state.money
+        fi_before = game_state.fi_score
+        energy_before = game_state.energy
+        motivation_before = game_state.motivation
+        social_before = game_state.social_life
+        step_number = game_state.current_step
+
+        # Apply decision effects
+        effect = setup_option_effect(chosen_option_data)
+        apply_decision_effects(game_state, effect)
+
+        # Generate consequence narrative
+        consequence = generate_consequence_narrative(
+            chosen_option=request.chosen_option,
+            option_effect=chosen_option_data,
+            state=game_state,
+            profile=profile,
+            client=client
+        )
+
+        # Generate learning moment (sometimes)
+        learning = generate_learning_moment(
+            chosen_option=request.chosen_option,
+            state=game_state,
+            profile=profile,
+            client=client
+        )
+
+        # Record decision in history
+        decision_record = DecisionHistory(
+            profile_id=profile.id,
+            step_number=step_number,
+            event_type=current_event_type,
+            narrative="",  # Will be filled from previous step's next_narrative
+            options_presented=[opt["text"] for opt in available_options],
+            chosen_option=request.chosen_option,
+            money_before=money_before,
+            fi_score_before=fi_before,
+            energy_before=energy_before,
+            motivation_before=motivation_before,
+            social_before=social_before,
+            money_after=game_state.money,
+            fi_score_after=game_state.fi_score,
+            energy_after=game_state.energy,
+            motivation_after=game_state.motivation,
+            social_after=game_state.social_life,
+            consequence_narrative=consequence,
+            learning_moment=learning
+        )
+
+        db_session.add(decision_record)
+
+        # Update game state in database
+        await db_session.commit()
+        await db_session.refresh(game_state)
+
+        # Generate next event
+        next_event_type = get_event_type(game_state, profile)
+        next_curveball = None
+        if next_event_type == "curveball":
+            next_curveball = generate_curveball_event(game_state)
+
+        # Generate next narrative
+        next_narrative = generate_event_narrative(
+            event_type=next_event_type,
+            state=game_state,
+            profile=profile,
+            curveball=next_curveball,
+            client=client
+        )
+
+        # Generate next options
+        next_options_data = create_decision_options(
+            next_event_type, game_state, next_curveball)
+        next_options = [opt["text"] for opt in next_options_data]
+
+        # Build updated state response
+        updated_state = GameStateResponse(
+            session_id=request.session_id,
+            current_step=game_state.current_step,
+            money=game_state.money,
+            monthly_income=game_state.monthly_income,
+            monthly_expenses=game_state.monthly_expenses,
+            investments=game_state.investments,
+            passive_income=game_state.passive_income,
+            debts=game_state.debts,
+            fi_score=game_state.fi_score,
+            energy=game_state.energy,
+            motivation=game_state.motivation,
+            social_life=game_state.social_life,
+            financial_knowledge=game_state.financial_knowledge,
+            assets=game_state.assets,
+            game_status=game_state.game_status
+        )
+
+        return DecisionResponse(
+            consequence_narrative=consequence,
+            updated_state=updated_state,
+            next_narrative=next_narrative,
+            next_options=next_options,
+            learning_moment=learning
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db_session.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, detail=f"Error processing decision: {str(e)}")

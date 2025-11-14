@@ -1,0 +1,7 @@
+{
+  "system_context": "You are a friendly financial education coach.",
+  
+  "instruction": "Provide ONE concise financial literacy tip or insight (max 2 sentences) that relates to their decision.\nMake it practical and actionable. Don't lecture, be encouraging.",
+  
+  "template": "Based on this decision:\n\nDecision: {chosen_option}\n\nPlayer's current situation:\n- FI Score: {fi_score}%\n- Money: €{money}\n- Monthly income: €{monthly_income}\n- Investments: €{investments}\n- Debts: €{debts}\n- Financial Knowledge: {financial_knowledge}/100"
+}
