@@ -20,11 +20,12 @@ services:
     build: ./frontend
     container_name: hackathon-frontend
     ports:
-      - "3000:3000"
+      - "4000:4000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
+      - PORT=4000
       - REACT_APP_API_URL=http://localhost:8000
       - CHOKIDAR_USEPOLLING=true
     depends_on:

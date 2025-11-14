@@ -25,7 +25,7 @@ cd /home/jberay/Junction2025/frontend && npm start
 
 ### 3. Open Browser
 
-- Visit: http://localhost:3000
+- Visit: http://localhost:4000
 - Look for **React Query DevTools** in bottom-left corner
 - Check **"API: connected"** in top bar
 
