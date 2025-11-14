@@ -63,6 +63,7 @@ const Onboarding = ({ onComplete, onError }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
+    player_name: "",
     age: 25,
     city: "Helsinki",
     education_path: "",
@@ -72,7 +73,7 @@ const Onboarding = ({ onComplete, onError }) => {
     aspirations: {},
   });
 
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -128,14 +129,16 @@ const Onboarding = ({ onComplete, onError }) => {
   const isStepValid = () => {
     switch (step) {
       case 1:
-        return formData.age >= 15 && formData.age <= 35;
+        return formData.player_name.trim().length > 0;
       case 2:
-        return formData.city !== "";
+        return formData.age >= 15 && formData.age <= 35;
       case 3:
-        return formData.education_path !== "";
+        return formData.city !== "";
       case 4:
-        return formData.risk_attitude !== "";
+        return formData.education_path !== "";
       case 5:
+        return formData.risk_attitude !== "";
+      case 6:
         return true; // Optional step
       default:
         return false;
@@ -154,7 +157,32 @@ const Onboarding = ({ onComplete, onError }) => {
             </p>
 
             <div className="form-group">
-              <label htmlFor="age">How old are you?</label>
+              <label htmlFor="player_name">What's your name?</label>
+              <input
+                id="player_name"
+                type="text"
+                maxLength="100"
+                value={formData.player_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, player_name: e.target.value })
+                }
+                className="input-field"
+                placeholder="Enter your name"
+              />
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="step-content">
+            <h2>🎂 How old are you?</h2>
+            <p className="step-description">
+              Your age helps us tailor the experience to your life stage.
+            </p>
+
+            <div className="form-group">
+              <label htmlFor="age">Age</label>
               <input
                 id="age"
                 type="number"
@@ -173,7 +201,7 @@ const Onboarding = ({ onComplete, onError }) => {
           </div>
         );
 
-      case 2:
+      case 3:
         return (
           <div className="step-content">
             <h2>📍 Where do you live?</h2>
@@ -201,7 +229,7 @@ const Onboarding = ({ onComplete, onError }) => {
           </div>
         );
 
-      case 3:
+      case 4:
         return (
           <div className="step-content">
             <h2>🎓 Education Path</h2>
@@ -228,7 +256,7 @@ const Onboarding = ({ onComplete, onError }) => {
           </div>
         );
 
-      case 4:
+      case 5:
         return (
           <div className="step-content">
             <h2>💭 Risk Attitude</h2>
@@ -256,7 +284,7 @@ const Onboarding = ({ onComplete, onError }) => {
           </div>
         );
 
-      case 5:
+      case 6:
         return (
           <div className="step-content">
             <h2>💰 Financial Starting Point</h2>
