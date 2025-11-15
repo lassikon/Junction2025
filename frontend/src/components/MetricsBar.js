@@ -27,14 +27,6 @@ const MetricsBar = ({ gameState }) => {
 
   return (
     <div className="metrics-bar">
-      <div className="metric-item highlight">
-        <span className="metric-icon">👤</span>
-        <div className="metric-info">
-          <span className="metric-label">Age</span>
-          <span className="metric-value">{current_age} yrs</span>
-        </div>
-      </div>
-
       <div className="metric-item">
         <span className="metric-icon">💰</span>
         <div className="metric-info">
