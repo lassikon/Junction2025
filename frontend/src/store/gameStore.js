@@ -19,7 +19,39 @@ export const useGameStore = create(
       // ===================================
       // VERSION CONTROL (increment to clear old cached data)
       // ===================================
-      _storeVersion: 2, // Increment when store structure changes
+      _storeVersion: 3, // Increment when store structure changes
+
+      // ===================================
+      // AUTHENTICATION STATE
+      // ===================================
+      authToken: null,
+      accountId: null,
+      username: null,
+      displayName: null,
+      hasCompletedOnboarding: false,
+      isTestMode: false,
+
+      setAuth: (authData) =>
+        set({
+          authToken: authData.token,
+          accountId: authData.account_id,
+          username: authData.username,
+          displayName: authData.display_name,
+          hasCompletedOnboarding: authData.has_completed_onboarding,
+          isTestMode: false,
+        }),
+
+      clearAuth: () =>
+        set({
+          authToken: null,
+          accountId: null,
+          username: null,
+          displayName: null,
+          hasCompletedOnboarding: false,
+          isTestMode: false,
+        }),
+
+      setTestMode: (isTest) => set({ isTestMode: isTest }),
 
       // ===================================
       // SESSION STATE
@@ -34,6 +66,22 @@ export const useGameStore = create(
           showDecisionModal: false,
           showConsequenceModal: false,
           consequenceData: null,
+        }),
+      
+      // Clear everything (logout)
+      clearAll: () => 
+        set({
+          authToken: null,
+          accountId: null,
+          username: null,
+          displayName: null,
+          hasCompletedOnboarding: false,
+          isTestMode: false,
+          sessionId: null,
+          showDecisionModal: false,
+          showConsequenceModal: false,
+          consequenceData: null,
+          transactionHistory: [],
         }),
 
       // ===================================
