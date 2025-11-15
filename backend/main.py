@@ -267,7 +267,7 @@ async def create_player(
         await session.commit()
         await session.refresh(game_state)
 
-        # Generate initial narrative and options
+        # Generate initial event and options
         initial_event_type = get_event_type(game_state, profile)
 
         initial_narrative = await generate_event_narrative(
@@ -279,7 +279,7 @@ async def create_player(
             client=client
         )
 
-        # Generate dynamic options with AI
+        # Generate dynamic options with AI - frontend will send these back with effects
         initial_options_data = generate_dynamic_options(
             event_type=initial_event_type,
             narrative=initial_narrative,
@@ -288,11 +288,6 @@ async def create_player(
             client=client
         )
 
-        # Extract option texts for response
-        initial_options = [opt["text"] for opt in initial_options_data]
-
-        # Store options data in game state metadata for retrieval
-        # (We'll need to recreate them on each step, so this is just for initial reference)
         game_state_response = GameStateResponse(
             session_id=session_id,
             current_step=game_state.current_step,
@@ -316,7 +311,7 @@ async def create_player(
         return OnboardingResponse(
             game_state=game_state_response,
             initial_narrative=initial_narrative,
-            initial_options=initial_options
+            initial_options=initial_options_data  # Return full option data with effects
         )
 
     except Exception as e:
@@ -502,14 +497,14 @@ async def get_decision_history(
 ):
     """
     Get decision history for a player session
-    
+
     Retrieves the player's past decisions with before/after states.
     Includes automatic summarization if history exceeds 10 decisions.
-    
+
     **Parameters:**
     - **session_id**: Player's session ID
     - **limit**: Maximum number of recent decisions to return (default: 10)
-    
+
     **Returns:** Decision history with states, or summary + recent decisions
     """
     try:
@@ -518,19 +513,19 @@ async def get_decision_history(
             select(PlayerProfile).where(PlayerProfile.session_id == session_id)
         )
         profile = result.scalar_one_or_none()
-        
+
         if not profile:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         # Get game state for current info
         result = await db_session.execute(
             select(GameState).where(GameState.profile_id == profile.id)
         )
         game_state = result.scalar_one_or_none()
-        
+
         if not game_state:
             raise HTTPException(status_code=404, detail="Game state not found")
-        
+
         # Get total count of decisions
         from sqlmodel import func
         count_result = await db_session.execute(
@@ -538,16 +533,16 @@ async def get_decision_history(
             .where(DecisionHistory.profile_id == profile.id)
         )
         total_decisions = count_result.scalar()
-        
+
         # Get decision history
         from utils import get_recent_decisions, create_decision_summary
-        
+
         decisions = await get_recent_decisions(
             profile_id=profile.id,
             db_session=db_session,
             limit=limit
         )
-        
+
         # Format decisions for response
         decision_list = []
         for d in decisions:
@@ -573,7 +568,7 @@ async def get_decision_history(
                     "social": d.social_after
                 }
             })
-        
+
         # Generate summary if needed
         summary = None
         if total_decisions > 10:
@@ -584,13 +579,13 @@ async def get_decision_history(
                 .order_by(DecisionHistory.step_number)
             )
             all_decisions = all_result.scalars().all()
-            
+
             summary = await create_decision_summary(
                 decisions=list(all_decisions),
                 current_age=game_state.current_age,
                 current_fi_score=game_state.fi_score
             )
-        
+
         return {
             "session_id": session_id,
             "total_decisions": total_decisions,
@@ -602,7 +597,7 @@ async def get_decision_history(
                 "step": game_state.current_step
             }
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -612,6 +607,7 @@ async def get_decision_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 @app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 async def process_decision(
     request: DecisionRequest,
@@ -632,7 +628,8 @@ async def process_decision(
 
     **Parameters:**
     - **session_id**: Current game session identifier
-    - **decision_index**: Index of the chosen decision option
+    - **chosen_option**: Text of chosen option
+    - **option_index**: Index of the chosen decision option (0-based)
 
     **Returns:** Updated game state, consequence narrative, and next decision options
     """
@@ -685,127 +682,75 @@ async def process_decision(
             )
             db_session.add(monthly_flow_log)
 
-        # Get the current event type for this step
-        current_event_type = get_event_type(game_state, profile)
-
-        # Generate curveball if needed
-        curveball = None
-        current_narrative = ""
-        if current_event_type == "curveball":
-            curveball = generate_curveball_event(game_state)
-            current_narrative = curveball["narrative"]
-        else:
-            # Generate narrative for current state to provide context for options
-            current_narrative = await generate_event_narrative(
-                event_type=current_event_type,
-                state=game_state,
-                profile=profile,
-                db_session=db_session,
-                curveball=curveball,
-                client=client
+        # Use the option data provided by the frontend
+        if not request.option_effects:
+            raise HTTPException(
+                status_code=400,
+                detail="option_effects is required. Frontend must send the full option data."
             )
 
-        # Generate dynamic options with AI
-        available_options = generate_dynamic_options(
-            event_type=current_event_type,
-            narrative=current_narrative,
+        chosen_option_data = request.option_effects
+        print(f"✅ Using frontend-provided option:")
+        print(f"  Text: {chosen_option_data.get('text', 'N/A')[:80]}")
+        print(
+            f"  Risk level: {chosen_option_data.get('risk_level', 'unknown')}")
+        print(f"  Category: {chosen_option_data.get('category', 'unknown')}")
+
+        # Extract event info from option data (for logging)
+        current_event_type = chosen_option_data.get('event_type', 'unknown')
+        current_narrative = chosen_option_data.get(
+            'narrative', request.chosen_option)
+
+        # Store state BEFORE any changes
+        state_before = {
+            'money': game_state.money,
+            'investments': game_state.investments,
+            'fi_score': game_state.fi_score,
+            'energy': game_state.energy,
+            'motivation': game_state.motivation,
+            'social': game_state.social_life,
+            'knowledge': game_state.financial_knowledge
+        }
+        step_number = game_state.current_step
+
+        # Generate consequence narrative AND effects (AI determines what happens)
+        print(
+            f"\n🎲 Generating consequence with AI (risk level: {chosen_option_data.get('risk_level', 'unknown')})...")
+        consequence_result = await generate_consequence_narrative(
+            chosen_option=request.chosen_option,
+            option_data=chosen_option_data,
             state=game_state,
             profile=profile,
+            event_narrative=current_narrative,
+            state_before=state_before,
+            db_session=db_session,
             client=client
         )
 
-        # Extract option texts for recording
-        option_texts = [opt["text"] for opt in available_options]
+        consequence = consequence_result['narrative']
+        effects_dict = consequence_result['effects']
 
-        # Find the chosen option
-        # Note: With dynamic options, we primarily rely on option_index for matching
-        # since text can vary between regenerations
-        chosen_option_data = None
-        chosen_index = -1
+        print(f"📜 Consequence: {consequence[:100]}...")
+        print(f"💰 Effects from AI:")
+        print(f"  Money: {effects_dict.get('money_change', 0)}")
+        print(f"  Investments: {effects_dict.get('investment_change', 0)}")
+        print(f"  Debt: {effects_dict.get('debt_change', 0)}")
 
-        print(f"🔍 OPTION MATCHING DEBUG:")
-        print(f"  Total available options: {len(available_options)}")
-        for i, opt in enumerate(available_options):
-            print(
-                f"  Option {i}: text='{opt.get('text', 'N/A')[:50]}...' explanation='{opt.get('explanation', 'N/A')[:50]}...'")
-
-        # If frontend sent an index, use it directly (most reliable)
-        if request.option_index is not None and 0 <= request.option_index < len(available_options):
-            chosen_option_data = available_options[request.option_index]
-            chosen_index = request.option_index
-        else:
-            # Fallback: try to match by text (less reliable with dynamic generation)
-            for i, text in enumerate(option_texts):
-                if text == request.chosen_option:
-                    chosen_option_data = available_options[i]
-                    chosen_index = i
-                    break
-
-        if not chosen_option_data:
-            print(f"❌ ERROR: Could not match option")
-            print(f"  Request option_index: {request.option_index}")
-            print(f"  Request chosen_option: {request.chosen_option}")
-            print(f"  Available options count: {len(available_options)}")
-            print(f"  Generated option texts: {option_texts}")
-            raise HTTPException(
-                status_code=400, detail=f"Invalid option chosen. Please use option index for reliable selection.")
-
-        # Store state before changes
-        money_before = game_state.money
-        investments_before = game_state.investments
-        fi_before = game_state.fi_score
-        energy_before = game_state.energy
-        motivation_before = game_state.motivation
-        social_before = game_state.social_life
-        step_number = game_state.current_step
-
-        # Apply decision effects and get transaction summary
-        effect = setup_dynamic_option_effect(chosen_option_data)
-
-        # Debug: Log chosen option details
-        print(f"📝 CHOSEN OPTION DEBUG:")
-        print(f"  Request option_index: {request.option_index}")
-        print(f"  Request chosen_option text: {request.chosen_option}")
-        print(f"  Matched option data:")
-        print(f"    - text: {chosen_option_data.get('text', 'N/A')}")
-        print(
-            f"    - explanation: {chosen_option_data.get('explanation', 'N/A')}")
-        print(
-            f"    - money_change: {chosen_option_data.get('money_change', 0)}")
-
-        # Debug: Log effect details
-        print(f"💰 APPLYING EFFECTS:")
-        print(f"  Investment change: {effect.investment_change}")
-        print(f"  Money change: {effect.money_change}")
-        print(
-            f"  Before - Investments: {investments_before}, Money: {money_before}")
-
+        # NOW apply the effects that the AI determined
+        effect = setup_dynamic_option_effect(effects_dict)
         transaction_data = apply_decision_effects(game_state, effect)
 
         print(
-            f"  After - Investments: {game_state.investments}, Money: {game_state.money}")
+            f"  After effects - Money: {game_state.money}, Investments: {game_state.investments}")
 
         # Calculate life metrics changes
         life_metrics_changes = LifeMetricsChanges(
-            energy_change=game_state.energy - energy_before,
-            motivation_change=game_state.motivation - motivation_before,
-            social_change=game_state.social_life - social_before,
+            energy_change=game_state.energy - state_before['energy'],
+            motivation_change=game_state.motivation -
+            state_before['motivation'],
+            social_change=game_state.social_life - state_before['social'],
             knowledge_change=game_state.financial_knowledge -
-            game_state.financial_knowledge  # Knowledge change is in effect
-        )
-
-        # Get knowledge change from effect
-        if hasattr(effect, 'knowledge_change'):
-            life_metrics_changes.knowledge_change = effect.knowledge_change
-
-        # Generate consequence narrative
-        consequence = await generate_consequence_narrative(
-            chosen_option=request.chosen_option,
-            option_effect=chosen_option_data,
-            state=game_state,
-            profile=profile,
-            db_session=db_session,
-            client=client
+            state_before['knowledge']
         )
 
         # Generate learning moment (sometimes)
@@ -816,19 +761,23 @@ async def process_decision(
             client=client
         )
 
+        # For options_presented, use what frontend sent (if available)
+        options_presented_texts = chosen_option_data.get(
+            'all_options', [request.chosen_option])
+
         # Record decision in history
         decision_record = DecisionHistory(
             profile_id=profile.id,
             step_number=step_number,
             event_type=current_event_type,
-            narrative=current_narrative,  # Store the event narrative
-            options_presented=[opt["text"] for opt in available_options],
+            narrative=current_narrative,
+            options_presented=options_presented_texts,
             chosen_option=request.chosen_option,
-            money_before=money_before,
-            fi_score_before=fi_before,
-            energy_before=energy_before,
-            motivation_before=motivation_before,
-            social_before=social_before,
+            money_before=state_before['money'],
+            fi_score_before=state_before['fi_score'],
+            energy_before=state_before['energy'],
+            motivation_before=state_before['motivation'],
+            social_before=state_before['social'],
             money_after=game_state.money,
             fi_score_after=game_state.fi_score,
             energy_after=game_state.energy,
@@ -873,7 +822,7 @@ async def process_decision(
         #   - Use retrieve_similar_decisions() for "What did others do?" insights
         #   - Current approach: SQLite for personal history (fast, simple)
         #   - Future approach: RAG for cross-player patterns (semantic similarity)
-        # 
+        #
         # try:
         #     rag = get_rag_service()
         #     rag.index_player_decision(
@@ -915,7 +864,11 @@ async def process_decision(
             client=client
         )
 
-        next_options = [opt["text"] for opt in next_options_data]
+        # Add event context to each option for frontend to send back
+        for opt in next_options_data:
+            opt['event_type'] = next_event_type
+            opt['narrative'] = next_narrative
+            opt['all_options'] = [o['text'] for o in next_options_data]
 
         # Build updated state response
         updated_state = GameStateResponse(
@@ -982,7 +935,7 @@ async def process_decision(
             consequence_narrative=consequence,
             updated_state=updated_state,
             next_narrative=next_narrative,
-            next_options=next_options,
+            next_options=next_options_data,  # Full option data with effects
             learning_moment=learning,
             transaction_summary=transaction_summary,
             monthly_cash_flow=monthly_cash_flow_summary,

@@ -25,6 +25,17 @@ const TopBar = ({ onShowTransactions, playerState }) => {
     window.location.reload();
   };
 
+  const handleClearCache = () => {
+    // Clear all localStorage
+    localStorage.clear();
+    
+    // Show alert
+    alert("Cache cleared! The page will reload with fresh data.");
+    
+    // Reload page
+    window.location.reload();
+  };
+
   // Get month name and phase
   const getMonthName = (monthsPassed) => {
     const months = ["January", "February", "March", "April", "May", "June",
@@ -60,6 +71,13 @@ const TopBar = ({ onShowTransactions, playerState }) => {
             📊 History
           </button>
         )}
+        <button 
+          onClick={handleClearCache} 
+          className="btn-clear-cache"
+          title="Clear cache and reload"
+        >
+          🔄 Clear Cache
+        </button>
         <button onClick={handleNewGame} className="btn-new-game">
           New Game
         </button>

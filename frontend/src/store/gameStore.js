@@ -19,7 +19,7 @@ export const useGameStore = create(
       // ===================================
       // VERSION CONTROL (increment to clear old cached data)
       // ===================================
-      _storeVersion: 2, // Increment when store structure changes
+      _storeVersion: 5, // Bumped to 5: frontend now sends full option effects to backend
 
       // ===================================
       // SESSION STATE
@@ -133,7 +133,7 @@ export const useGameStore = create(
     }),
     {
       name: "lifesim-game-storage", // localStorage key
-      version: 2, // Must match _storeVersion - will clear old data automatically
+      version: 5, // Must match _storeVersion - will clear old data automatically
       // Only persist essential data across sessions
       // NOTE: Do NOT persist currentNarrative/currentOptions - they must be fresh from API
       partialize: (state) => ({

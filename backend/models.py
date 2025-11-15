@@ -8,7 +8,7 @@ This module defines the SQLModel models for:
 - Leaderboard entries
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship, JSON, Column
 from enum import Enum
@@ -305,17 +305,20 @@ class GameStateResponse(SQLModel):
 
 
 class OnboardingResponse(SQLModel):
-    """Response model for onboarding with initial narrative"""
+    """Response model after completing onboarding"""
     game_state: GameStateResponse
     initial_narrative: str
-    initial_options: List[str]
+    # Full option data with effects for frontend to send back
+    initial_options: List[Dict] = []
 
 
 class DecisionRequest(SQLModel):
     """Request model for making a decision"""
     session_id: str
     chosen_option: str
-    # Index of the chosen option for reliable matching
+    # Full option data with effects (money_change, energy_change, etc.)
+    option_effects: Optional[Dict] = None
+    # Index of the chosen option (legacy, for logging)
     option_index: Optional[int] = None
 
 
@@ -324,7 +327,8 @@ class DecisionResponse(SQLModel):
     consequence_narrative: str
     updated_state: GameStateResponse
     next_narrative: str
-    next_options: List[str]
+    # Full option data with effects for frontend to send back
+    next_options: List[Dict] = []
     learning_moment: Optional[str] = None
     transaction_summary: Optional["TransactionSummary"] = None
     monthly_cash_flow: Optional["MonthlyCashFlowSummary"] = None

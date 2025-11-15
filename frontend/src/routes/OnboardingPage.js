@@ -21,7 +21,7 @@ const OnboardingPage = () => {
       // Save session ID to Zustand store (persists to localStorage)
       setSessionId(result.game_state.session_id);
 
-      // Store initial narrative and options
+      // Store initial narrative and full option data (with effects)
       setNarrativeAndOptions(result.initial_narrative, result.initial_options);
 
       // Hide onboarding
@@ -58,4 +58,3 @@ const OnboardingPage = () => {
 };
 
 export default OnboardingPage;
-

@@ -45,10 +45,14 @@ const GamePage = () => {
 
   const handleChooseOption = async (chosenOption, optionIndex) => {
     try {
+      // Get the full option data to send back to backend
+      const optionEffects = currentOptions[optionIndex];
+      
       const result = await decisionMutation.mutateAsync({
         sessionId,
         chosenOption,
         optionIndex,
+        optionEffects,  // Send full option data including effects
       });
 
       // Close decision modal
