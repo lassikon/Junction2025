@@ -4,6 +4,7 @@ import axios from "axios";
 import { useHealthCheck } from "../api/lifesim";
 import { useGameStore } from "../store/gameStore";
 import LeaderboardModal from "./LeaderboardModal";
+import LearnMore from "../LearnMore";
 import "../styles/TopBar.css";
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -16,6 +17,7 @@ const TopBar = ({ onShowTransactions, playerState }) => {
   const { data: healthStatus } = useHealthCheck();
   const { resetGame, authToken, displayName, isTestMode, clearAll } = useGameStore();
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showLearn, setShowLearn] = useState(false);
 
   const apiStatus = healthStatus?.status === "healthy" ? "connected" : "disconnected";
 
@@ -122,6 +124,13 @@ const TopBar = ({ onShowTransactions, playerState }) => {
         >
           🔄 Clear Cache
         </button>
+        <button
+          onClick={() => setShowLearn(true)}
+          className="btn-learn-more"
+          title="Learn more about the game"
+        >
+          ℹ️ Learn more
+        </button>
         <button onClick={handleNewGame} className="btn-new-game">
           🎮 New Game
         </button>
@@ -137,6 +146,15 @@ const TopBar = ({ onShowTransactions, playerState }) => {
         )}
       </div>
       
+      {showLearn && (
+        <div className="modal-overlay" onClick={() => setShowLearn(false)}>
+          <div className="modal-content" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowLearn(false)} aria-label="Close">×</button>
+            <LearnMore onClose={() => setShowLearn(false)} />
+          </div>
+        </div>
+      )}
+
       <LeaderboardModal 
         isOpen={showLeaderboard} 
         onClose={() => setShowLeaderboard(false)} 

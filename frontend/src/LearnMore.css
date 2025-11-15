@@ -63,3 +63,39 @@
   background: #f1f5f9;
   color: #111827;
 }
+
+/* When LearnMore is displayed inside a modal, inherit modal sizing and remove outer margin/shadow */
+.modal-content .learn-container,
+.game-page-modal-content .learn-container,
+.transaction-history-modal .learn-container {
+  margin: 0;
+  padding: 20px;
+  max-width: none;
+  background: #ecfdf5; /* light green background */
+  box-shadow: none;
+  border-radius: 12px;
+  border: 1px solid rgba(34,197,94,0.06);
+}
+
+.modal-content .learn-header {
+  padding: 0 0 12px 0;
+}
+
+/* Center header/title and subtitle */
+.learn-header {
+  text-align: center;
+}
+
+.modal-content .learn-main {
+  padding-top: 8px;
+}
+
+/* Tweak heading/subtitle spacing and color when inside LearnMore */
+.learn-container .learn-header h1 {
+  margin: 0 0 8px 0;
+}
+
+.learn-container .subtitle {
+  margin-top: 6px;
+  color: #111827; /* dark/black color for subtitle */
+}
