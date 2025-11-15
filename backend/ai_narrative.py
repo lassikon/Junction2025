@@ -27,8 +27,9 @@ async def retrieve_rag_context(
     db_session = None,
     current_age: Optional[int] = None,
     current_fi_score: Optional[float] = None,
-    top_k: int = 2,
+    top_k: int = 5,
     min_score: float = 0.5,
+    min_concepts: int = 3,
     include_decisions: bool = True
 ) -> Optional[str]:
     """
@@ -38,6 +39,10 @@ async def retrieve_rag_context(
     - RAG (ChromaDB) for financial concepts from PDFs (semantic search)
     - SQLite for player's own decision history (fast chronological retrieval)
     
+    Strategy: Retrieve more concepts (top_k=5), but guarantee at least min_concepts=3
+    are included even if they don't meet min_score threshold. This ensures we always
+    have some context while still filtering low-quality matches when we have better ones.
+    
     Args:
         query: Search query for financial concepts
         profile_id: Player profile ID for retrieving decision history
@@ -45,7 +50,8 @@ async def retrieve_rag_context(
         current_age: Player's current age (for decision summarization)
         current_fi_score: Player's current FI score (for decision summarization)
         top_k: Number of financial concepts to retrieve from RAG
-        min_score: Minimum relevance score threshold for concepts
+        min_score: Minimum relevance score threshold for concepts (when > min_concepts)
+        min_concepts: Minimum number of concepts to include regardless of score
         include_decisions: Whether to include player's decision history
         
     Returns:
@@ -55,7 +61,7 @@ async def retrieve_rag_context(
     print("🔍 CONTEXT RETRIEVAL (Financial Concepts + Decision History)")
     print("="*80)
     print(f"Query: {query}")
-    print(f"Parameters: top_k={top_k}, min_score={min_score}, profile_id={profile_id}")
+    print(f"Parameters: top_k={top_k}, min_score={min_score}, min_concepts={min_concepts}, profile_id={profile_id}")
     print("-"*80)
     
     context_parts = []
@@ -68,10 +74,16 @@ async def retrieve_rag_context(
         rag = get_rag_service()
         print("✅ RAG service retrieved successfully")
         
-        concepts = rag.retrieve_financial_concepts(
+        # For learning moments, retrieve more concepts but ensure quality
+        all_concepts = rag.retrieve_financial_concepts(
             query=query,
-            top_k=top_k
+            top_k=5
         )
+        
+        # Filter: take concepts above 0.4, but guarantee at least 3
+        concepts = [c for c in all_concepts if c['score'] >= 0.4] if all_concepts else []
+        if len(concepts) < 3 and all_concepts:
+            concepts = all_concepts[:3]
         
         print(f"📊 Retrieved {len(concepts) if concepts else 0} financial concepts")
         
@@ -79,29 +91,37 @@ async def retrieve_rag_context(
             for i, c in enumerate(concepts, 1):
                 print(f"  {i}. {c['title']} - Score: {c['score']:.3f} - Source: {c.get('source', 'unknown')}")
         
-        # Check if concepts meet threshold
-        has_relevant_concepts = concepts and len(concepts) > 0 and concepts[0]['score'] >= min_score
-        
-        if not has_relevant_concepts:
-            best_score = concepts[0]['score'] if concepts and len(concepts) > 0 else None
-            score_text = f"{best_score:.3f}" if best_score is not None else "N/A"
-            print(f"⚠️  No concepts above threshold (best score: {score_text})")
-        else:
-            print(f"✅ Using {len([c for c in concepts if c['score'] >= min_score])} concepts above threshold")
+        # Smart filtering: always include at least min_concepts, then apply threshold
+        filtered_concepts = []
+        if concepts:
+            # First, take concepts that meet the threshold
+            above_threshold = [c for c in concepts if c['score'] >= min_score]
+            
+            if len(above_threshold) >= min_concepts:
+                # We have enough good concepts, use only those above threshold
+                filtered_concepts = above_threshold
+                print(f"✅ Using {len(filtered_concepts)} concepts above threshold (min_score={min_score})")
+            else:
+                # Not enough above threshold, take top min_concepts regardless of score
+                filtered_concepts = concepts[:min_concepts]
+                above_count = len(above_threshold)
+                below_count = len(filtered_concepts) - above_count
+                print(f"✅ Using {len(filtered_concepts)} concepts: {above_count} above threshold, {below_count} below (guaranteed minimum)")
         
         # Format retrieved concepts for prompt injection
-        if has_relevant_concepts:
+        if filtered_concepts:
             concept_lines = []
-            for i, concept in enumerate(concepts, 1):
-                if concept['score'] >= min_score:
-                    source_info = f"[Source: {concept.get('source', 'knowledge_base')}]"
-                    concept_lines.append(
-                        f"{i}. {concept['title']} (relevance: {concept['score']:.2f}) {source_info}\n"
-                        f"   {concept['content'][:300]}{'...' if len(concept['content']) > 300 else ''}"
-                    )
+            for i, concept in enumerate(filtered_concepts, 1):
+                source_info = f"[Source: {concept.get('source', 'knowledge_base')}]"
+                score_marker = "⭐" if concept['score'] >= min_score else "📌"
+                concept_lines.append(
+                    f"{score_marker} {i}. {concept['title']} (relevance: {concept['score']:.2f}) {source_info}\n"
+                    f"   {concept['content'][:300]}{'...' if len(concept['content']) > 300 else ''}"
+                )
             
-            if concept_lines:
-                context_parts.append("=== FINANCIAL KNOWLEDGE ===\n" + "\n\n".join(concept_lines))
+            context_parts.append("=== FINANCIAL KNOWLEDGE ===\n" + "\n\n".join(concept_lines))
+        else:
+            print(f"⚠️  No concepts retrieved")
         
     except Exception as e:
         print(f"⚠️ RAG retrieval failed: {e}")
@@ -214,8 +234,9 @@ async def generate_event_narrative(
             db_session=db_session,
             current_age=state.current_age,
             current_fi_score=state.fi_score,
-            top_k=2,
+            top_k=5,
             min_score=0.4,
+            min_concepts=3,
             include_decisions=True
         )
         
@@ -290,8 +311,9 @@ async def generate_consequence_narrative(
             db_session=db_session,
             current_age=state.current_age,
             current_fi_score=state.fi_score,
-            top_k=2,
+            top_k=5,
             min_score=0.4,
+            min_concepts=3,
             include_decisions=True
         )
         
@@ -359,17 +381,26 @@ def generate_learning_moment(
         # Retrieve relevant financial concepts
         difficulty = "beginner" if state.financial_knowledge < 50 else "intermediate"
         print(f"📊 Difficulty filter: {difficulty}")
-        concepts = rag.retrieve_financial_concepts(
+        
+        # Retrieve more concepts and apply smart filtering
+        all_concepts = rag.retrieve_financial_concepts(
             query=query,
             difficulty_filter=difficulty,
-            top_k=2
+            top_k=5
         )
+        
+        # Filter: take concepts above 0.4, but guarantee at least 3
+        concepts = [c for c in all_concepts if c['score'] >= 0.4] if all_concepts else []
+        if len(concepts) < 3 and all_concepts:
+            concepts = all_concepts[:3]
+        
         print(f"📚 Retrieved {len(concepts) if concepts else 0} concepts")
         if concepts:
             for i, concept in enumerate(concepts, 1):
-                print(f"  {i}. {concept['title']} - Score: {concept['score']:.3f}")
+                score_marker = "⭐" if concept['score'] >= 0.4 else "📌"
+                print(f"  {score_marker} {i}. {concept['title']} - Score: {concept['score']:.3f}")
 
-        # Only generate if we found relevant concepts (score > 0.7)
+        # Only generate if we found relevant concepts (score > 0.7 for best match)
         if not concepts or len(concepts) == 0:
             print(f"⚠️  No concepts retrieved")
             print("#"*80 + "\n")
