@@ -1,4 +1,10 @@
 /* Consequence Modal Styles */
+.consequence-modal-content {
+  max-width: 700px !important;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
 .consequence-section {
   text-align: center;
 }
@@ -17,6 +23,7 @@
   background: #f8f9fa;
   border-radius: 10px;
   margin-bottom: 20px;
+  text-align: left;
 }
 
 .learning-moment {

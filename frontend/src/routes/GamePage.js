@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useGameStore } from "../store/gameStore";
 import { usePlayerState, useMakeDecision } from "../api/lifesim";
 import TopBar from "../components/TopBar";
@@ -6,6 +6,7 @@ import MetricsBar from "../components/MetricsBar";
 import SceneView from "../components/SceneView";
 import ChoiceList from "../components/ChoiceList";
 import ConsequenceModal from "../components/ConsequenceModal";
+import TransactionHistory from "../components/TransactionHistory";
 import "../styles/GamePage.css";
 
 /**
@@ -13,6 +14,9 @@ import "../styles/GamePage.css";
  * Displays player metrics, narrative, and decision choices
  */
 const GamePage = () => {
+  const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const [monthlyCashFlow, setMonthlyCashFlow] = useState(null);
+  
   const {
     sessionId,
     showDecisionModal,
@@ -22,6 +26,8 @@ const GamePage = () => {
     closeConsequenceModal,
     consequenceData,
     setConsequenceData,
+    lastTransaction,
+    setLastTransaction,
     currentNarrative,
     currentOptions,
     setNarrativeAndOptions,
@@ -45,6 +51,19 @@ const GamePage = () => {
 
       // Close decision modal
       closeDecisionModal();
+
+      // Store transaction summary
+      if (result.transaction_summary) {
+        setLastTransaction(result.transaction_summary);
+      }
+
+      // Store monthly cash flow
+      if (result.monthly_cash_flow) {
+        setMonthlyCashFlow(result.monthly_cash_flow);
+      }
+      if (result.monthly_cash_flow) {
+        setMonthlyCashFlow(result.monthly_cash_flow);
+      }
 
       // Store consequence data and open consequence modal
       setConsequenceData({
@@ -85,7 +104,7 @@ const GamePage = () => {
 
   return (
     <div className="game-page">
-      <TopBar />
+      <TopBar onShowTransactions={() => setShowTransactionHistory(true)} />
 
       {/* Error Banner for Decision Errors */}
       {decisionMutation.isError && (
@@ -123,7 +142,17 @@ const GamePage = () => {
         <ConsequenceModal
           consequence={consequenceData.consequence}
           learningMoment={consequenceData.learningMoment}
+          transactionSummary={lastTransaction}
+          monthlyCashFlow={monthlyCashFlow}
           onClose={handleCloseConsequence}
+        />
+      )}
+
+      {/* Transaction History Modal */}
+      {showTransactionHistory && (
+        <TransactionHistory
+          sessionId={sessionId}
+          onClose={() => setShowTransactionHistory(false)}
         />
       )}
     </div>

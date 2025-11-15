@@ -94,6 +94,9 @@ class GameState(SQLModel, table=True):
     # Time tracking
     current_age: int = Field(default=25)  # Updates as time passes
     years_passed: float = Field(default=0.0)  # Total game time in years
+    months_passed: int = Field(default=0)  # Total months in game
+    # 1=early, 2=mid, 3=late month
+    month_phase: int = Field(default=1, ge=1, le=3)
 
     # Financial metrics
     money: float = Field(default=0.0)  # Current cash/savings
@@ -171,6 +174,48 @@ class DecisionHistory(SQLModel, table=True):
 
     # Relationships
     player_profile: PlayerProfile = Relationship(back_populates="decisions")
+
+
+# Transaction Log Model
+class TransactionLog(SQLModel, table=True):
+    """
+    Stores detailed financial transaction logs for each decision.
+    Tracks all money movements for player transparency and analysis.
+    """
+    __tablename__ = "transaction_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    profile_id: int = Field(foreign_key="player_profiles.id", index=True)
+
+    # Transaction context
+    step_number: int
+    event_type: str
+    chosen_option: str
+
+    # Transaction details (amounts in euros)
+    # Positive values = gains, Negative values = losses
+    cash_change: float = Field(default=0.0)
+    investment_change: float = Field(default=0.0)
+    debt_change: float = Field(default=0.0)
+
+    # Monthly recurring changes
+    monthly_income_change: float = Field(default=0.0)
+    monthly_expense_change: float = Field(default=0.0)
+    passive_income_change: float = Field(default=0.0)
+
+    # Balances after transaction
+    cash_balance: float
+    investment_balance: float
+    debt_balance: float
+    monthly_income_total: float
+    monthly_expense_total: float
+    passive_income_total: float
+
+    # Description of the transaction
+    description: str
+
+    # Timestamp
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 # Leaderboard Model
@@ -279,6 +324,59 @@ class DecisionResponse(SQLModel):
     next_narrative: str
     next_options: List[str]
     learning_moment: Optional[str] = None
+    transaction_summary: Optional["TransactionSummary"] = None
+    monthly_cash_flow: Optional["MonthlyCashFlowSummary"] = None
+
+
+class MonthlyCashFlowSummary(SQLModel):
+    """Summary of monthly income/expense cash flow for the turn"""
+    applied: bool = True  # Whether cash flow was applied this turn (only true for phase 1)
+    income_received: float = 0.0
+    expenses_paid: float = 0.0
+    net_change: float = 0.0
+    debt_from_deficit: float = 0.0
+    month_name: str = ""
+    month_phase: int = 1  # 1, 2, or 3
+    month_phase_name: str = "Early"  # Early, Mid, Late
+
+
+class TransactionSummary(SQLModel):
+    """Summary of financial changes from a decision"""
+    # One-time changes
+    cash_change: float
+    investment_change: float
+    debt_change: float
+
+    # Monthly recurring changes
+    monthly_income_change: float
+    monthly_expense_change: float
+    passive_income_change: float
+
+    # New balances
+    cash_balance: float
+    investment_balance: float
+    debt_balance: float
+    monthly_income_total: float
+    monthly_expense_total: float
+    passive_income_total: float
+
+    # Human-readable description
+    description: str
+
+
+class TransactionLogResponse(SQLModel):
+    """Response model for transaction log entry"""
+    step_number: int
+    event_type: str
+    chosen_option: str
+    cash_change: float
+    investment_change: float
+    debt_change: float
+    monthly_income_change: float
+    monthly_expense_change: float
+    passive_income_change: float
+    description: str
+    created_at: datetime
 
 
 class LeaderboardResponse(SQLModel):

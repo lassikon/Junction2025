@@ -189,6 +189,8 @@ def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly
         "current_step": 0,
         "current_age": profile.age,  # Initialize with player's starting age
         "years_passed": 0.0,
+        "months_passed": 0,
+        "month_phase": 1,  # Start at beginning of first month
         "money": profile.starting_savings,
         "monthly_income": monthly_income,
         "monthly_expenses": monthly_expenses,

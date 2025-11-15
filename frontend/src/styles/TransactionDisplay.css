@@ -1,0 +1,286 @@
+/* TransactionDisplay.css - Balance Sheet Style */
+
+.transaction-display {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.transaction-display h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.3rem;
+  color: #ffd700;
+  text-align: center;
+}
+
+.transaction-display h4 {
+  margin: 15px 0 10px 0;
+  font-size: 1.1rem;
+  color: #ffffff;
+}
+
+.no-changes {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  padding: 10px 0;
+}
+
+/* Balance Sheet Layout */
+.balance-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.balance-sheet-section {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.section-title {
+  margin: 0 0 12px 0 !important;
+  font-size: 1.1em !important;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.inflows .section-title {
+  color: #6ee7b7;
+}
+
+.outflows .section-title {
+  color: #fca5a5;
+}
+
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.balance-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: transparent;
+  border-radius: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.balance-item:last-child {
+  border-bottom: none;
+}
+
+.item-label {
+  color: #e5e7eb;
+  font-size: 0.95em;
+}
+
+.item-amount {
+  font-weight: 700;
+  font-size: 1.05em;
+  padding: 5px 12px;
+  border-radius: 5px;
+}
+
+.item-amount.positive {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.2);
+}
+
+.item-amount.negative {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.2);
+}
+
+.subtotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 700;
+  font-size: 1.05em;
+}
+
+.subtotal span:first-child {
+  color: #f3f4f6;
+}
+
+.empty-section {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+  padding: 10px 0;
+}
+
+.net-change {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05));
+  border-radius: 8px;
+  font-size: 1.2em;
+  font-weight: 700;
+  border: 2px solid rgba(255, 215, 0, 0.3);
+}
+
+.net-change span:first-child {
+  color: #fbbf24;
+}
+
+/* Monthly Changes */
+.monthly-changes {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.monthly-title {
+  margin: 0 0 15px 0 !important;
+  font-size: 1.1em !important;
+  color: #93c5fd;
+  text-align: center;
+}
+
+.monthly-section {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.monthly-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.monthly-group-title {
+  font-weight: 600;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  padding-left: 12px;
+}
+
+.monthly-group-title.positive {
+  color: #6ee7b7;
+}
+
+.monthly-group-title.negative {
+  color: #fca5a5;
+}
+
+/* Balance Summary */
+.balance-summary {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.balance-summary h4 {
+  margin: 0 0 15px 0 !important;
+  font-size: 1.1em !important;
+  color: #ffd700;
+  text-align: center;
+}
+
+.balance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.balance-grid:last-child {
+  margin-bottom: 0;
+}
+
+.balance-grid .balance-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.balance-label {
+  font-size: 0.85em;
+  color: #d1d5db;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.balance-value {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: #f9fafb;
+}
+
+.monthly-totals {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 15px;
+}
+
+.monthly-totals .balance-value {
+  font-size: 1em;
+}
+
+.monthly-totals .balance-value.positive {
+  color: #34d399;
+}
+
+.monthly-totals .balance-value.negative {
+  color: #f87171;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .balance-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .balance-sheet {
+    gap: 12px;
+  }
+  
+  .transaction-display {
+    padding: 15px;
+  }
+}
+
+/* Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.balance-item {
+  animation: slideIn 0.3s ease;
+}
+

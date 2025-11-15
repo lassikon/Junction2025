@@ -5,7 +5,7 @@ This module contains the core game logic:
 - Processing player decisions
 - Updating game state based on choices
 - Generating events and options
-- Triggering curveballs
+- Monthly phase-based progression (3 steps per month)
 """
 
 from typing import Dict, List, Tuple, Optional
@@ -19,21 +19,37 @@ from utils import (
 )
 
 
-# Event templates for different stages of the game
-EVENT_TYPES = [
-    "first_paycheck",
-    "budget_decision",
-    "investment_opportunity",
-    "unexpected_expense",
-    "career_opportunity",
-    "lifestyle_choice",
-    "housing_decision",
-    "vehicle_decision",
-    "debt_management",
-    "emergency_fund",
-    "social_event",
-    "education_opportunity"
+# Event types organized by month phase
+PHASE_1_EVENTS = [
+    "monthly_budget",
+    "savings_decision",
+    "investment_planning",
+    "debt_payment_plan",
+    "income_review"
 ]
+
+PHASE_2_3_EVENTS = [
+    "social_event",
+    "small_purchase",
+    "minor_emergency",
+    "daily_choice",
+    "entertainment_option",
+    "maintenance_issue",
+    "side_hustle_opportunity",
+    "unexpected_expense"
+]
+
+
+def get_month_phase_name(phase: int) -> str:
+    """Get descriptive name for month phase"""
+    return {1: "Early", 2: "Mid", 3: "Late"}.get(phase, "Early")
+
+
+def get_current_month_name(months_passed: int) -> str:
+    """Get month name from months passed"""
+    month_names = ["January", "February", "March", "April", "May", "June",
+                   "July", "August", "September", "October", "November", "December"]
+    return month_names[months_passed % 12]
 
 
 class DecisionEffect:
@@ -56,14 +72,120 @@ class DecisionEffect:
         self.risk_factor_updates: Dict = {}
 
 
-def apply_decision_effects(state: GameState, effect: DecisionEffect) -> None:
+def create_transaction_description(effect: DecisionEffect) -> str:
     """
-    Apply decision effects to game state.
+    Create a human-readable description of financial changes.
+
+    Args:
+        effect: DecisionEffect object with changes
+
+    Returns:
+        Formatted description string
+    """
+    changes = []
+
+    # One-time changes
+    if effect.money_change != 0:
+        sign = "+" if effect.money_change > 0 else ""
+        changes.append(f"Cash {sign}€{effect.money_change:.0f}")
+
+    if effect.investment_change != 0:
+        sign = "+" if effect.investment_change > 0 else ""
+        changes.append(f"Investments {sign}€{effect.investment_change:.0f}")
+
+    if effect.debt_change != 0:
+        sign = "+" if effect.debt_change > 0 else ""
+        changes.append(f"Debt {sign}€{effect.debt_change:.0f}")
+
+    # Monthly recurring changes
+    if effect.income_change != 0:
+        sign = "+" if effect.income_change > 0 else ""
+        changes.append(f"Monthly Income {sign}€{effect.income_change:.0f}/mo")
+
+    if effect.expense_change != 0:
+        sign = "+" if effect.expense_change > 0 else ""
+        changes.append(
+            f"Monthly Expenses {sign}€{effect.expense_change:.0f}/mo")
+
+    if effect.passive_income_change != 0:
+        sign = "+" if effect.passive_income_change > 0 else ""
+        changes.append(
+            f"Passive Income {sign}€{effect.passive_income_change:.0f}/mo")
+
+    return "; ".join(changes) if changes else "No financial changes"
+
+
+def apply_monthly_cash_flow(state: GameState) -> Dict:
+    """
+    Apply monthly income and expenses at the start of each month (phase 1 only).
+
+    Args:
+        state: Current game state
+
+    Returns:
+        Dictionary with cash flow transaction details
+    """
+    # Only apply on phase 1 (start of month)
+    if state.month_phase != 1:
+        return {
+            "cash_change": 0,
+            "income_received": 0,
+            "expenses_paid": 0,
+            "debt_from_deficit": 0,
+            "cash_balance": state.money,
+            "applied": False
+        }
+
+    # Calculate total monthly income (salary + passive income)
+    total_income = state.monthly_income + state.passive_income
+
+    # Apply income and expenses for the full month
+    state.money += total_income
+    state.money -= state.monthly_expenses
+
+    print(
+        f"💰 MONTHLY CASH FLOW (New Month - {get_current_month_name(state.months_passed)}):")
+    print(f"  Income: €{total_income:.0f}")
+    print(f"  Expenses: €{state.monthly_expenses:.0f}")
+    print(f"  Net: €{total_income - state.monthly_expenses:.0f}")
+    print(f"  Cash balance: €{state.money:.0f}")
+
+    # Convert negative cash to debt if needed
+    debt_from_deficit = 0
+    if state.money < 0:
+        deficit = abs(state.money)
+        state.debts += deficit
+        debt_from_deficit = deficit
+        state.money = 0
+        print(
+            f"💳 Converted €{deficit:.0f} negative cash to debt. Total debt now: €{state.debts:.0f}")
+
+    return {
+        "cash_change": total_income - state.monthly_expenses,
+        "income_received": total_income,
+        "expenses_paid": state.monthly_expenses,
+        "debt_from_deficit": debt_from_deficit,
+        "cash_balance": state.money,
+        "applied": True
+    }
+
+
+def apply_decision_effects(state: GameState, effect: DecisionEffect) -> Dict:
+    """
+    Apply decision effects to game state and return transaction summary.
 
     Args:
         state: Current game state
         effect: DecisionEffect object with changes to apply
+
+    Returns:
+        Dictionary with transaction details for logging
     """
+    # Store changes before applying
+    cash_change = effect.money_change
+    investment_change = effect.investment_change
+    debt_change = effect.debt_change
+
     # Update financial metrics
     state.money += effect.money_change
     state.investments += effect.investment_change
@@ -77,6 +199,7 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> None:
         # Transfer negative balance to debt
         deficit = abs(state.money)
         state.debts += deficit
+        debt_change += deficit  # Update debt_change to reflect conversion
         state.money = 0
         print(
             f"💳 Converted €{deficit:.0f} negative cash to debt. Total debt now: €{state.debts:.0f}")
@@ -104,18 +227,45 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> None:
     state.fi_score = calculate_fi_score(
         state.passive_income, state.monthly_expenses)
 
-    # Increment step and age
+    # Increment step
     state.current_step += 1
 
-    # Time progression: each step = 6 months
-    time_per_step = 0.5  # years
-    state.years_passed += time_per_step
-    state.current_age = int(state.current_age + time_per_step)
+    # Advance month phase (1 -> 2 -> 3 -> 1)
+    state.month_phase += 1
+    if state.month_phase > 3:
+        state.month_phase = 1
+        state.months_passed += 1
+
+        # Update age every 12 months
+        if state.months_passed % 12 == 0:
+            state.current_age += 1
+
+        state.years_passed = state.months_passed / 12.0
+
+    print(
+        f"⏰ TIME: Step {state.current_step}, Month {state.months_passed} (Phase {state.month_phase}/3)")
+
+    # Return transaction summary
+    return {
+        "cash_change": cash_change,
+        "investment_change": investment_change,
+        "debt_change": debt_change,
+        "monthly_income_change": effect.income_change,
+        "monthly_expense_change": effect.expense_change,
+        "passive_income_change": effect.passive_income_change,
+        "cash_balance": state.money,
+        "investment_balance": state.investments,
+        "debt_balance": state.debts,
+        "monthly_income_total": state.monthly_income,
+        "monthly_expense_total": state.monthly_expenses,
+        "passive_income_total": state.passive_income,
+        "description": create_transaction_description(effect)
+    }
 
 
 def get_event_type(state: GameState, profile: PlayerProfile) -> str:
     """
-    Determine the next event type based on game state and progress.
+    Determine the next event type based on month phase and game state.
 
     Args:
         state: Current game state
@@ -124,44 +274,52 @@ def get_event_type(state: GameState, profile: PlayerProfile) -> str:
     Returns:
         Event type string
     """
+    phase = state.month_phase
     step = state.current_step
 
-    # First few steps follow a progression
-    if step == 0:
-        return "first_paycheck"
-    elif step == 1:
-        return "budget_decision"
-    elif step == 2:
-        return "emergency_fund"
+    # Phase 1 (Early Month): Budget planning and major financial decisions
+    if phase == 1:
+        # First month special events
+        if state.months_passed == 0:
+            return "first_paycheck"
+        elif state.months_passed == 1:
+            return "savings_decision"
 
-    # Check for curveball
-    if should_trigger_curveball(state):
-        return "curveball"
+        # Check for debt
+        if state.debts > state.monthly_income * 2:
+            return "debt_payment_plan"
 
-    # Weighted random selection based on current state
-    weights = {
-        "investment_opportunity": 2 if state.money > 5000 else 1,
-        "career_opportunity": 2 if state.motivation > 60 else 1,
-        "lifestyle_choice": 2 if state.social_life < 50 else 1,
-        "housing_decision": 2 if step > 5 and "rental" in state.assets else 1,
-        "vehicle_decision": 1 if not state.risk_factors.get("has_car") else 0,
-        "debt_management": 3 if state.debts > 0 else 0,
-        "social_event": 2 if state.energy > 50 else 1,
-        "education_opportunity": 1 if state.financial_knowledge < 60 else 0,
-    }
+        # Regular phase 1 events
+        return random.choice(PHASE_1_EVENTS)
 
-    available_events = [k for k, v in weights.items() if v > 0]
-    event_weights = [weights[k] for k in available_events]
+    # Phase 2 & 3 (Mid/Late Month): Smaller daily events and spending decisions
+    else:
+        # Check for curveball (lower probability for smaller events)
+        if should_trigger_curveball(state):
+            return "curveball"
 
-    if not available_events:
-        return "budget_decision"
+        # Weighted selection based on state
+        weights = {
+            "social_event": 2 if state.energy > 50 else 1,
+            "small_purchase": 2 if state.money > state.monthly_expenses else 1,
+            "minor_emergency": 1,
+            "daily_choice": 2,
+            "entertainment_option": 2 if state.social_life < 60 else 1,
+            "maintenance_issue": 2 if state.risk_factors.get("has_car") else 1,
+            "side_hustle_opportunity": 1 if state.motivation > 60 else 0,
+            "unexpected_expense": 1
+        }
 
-    return random.choices(available_events, weights=event_weights)[0]
+        available_events = [k for k, v in weights.items() if v > 0]
+        event_weights = [weights[k] for k in available_events]
+
+        return random.choices(available_events, weights=event_weights)[0]
 
 
 def should_trigger_curveball(state: GameState) -> bool:
     """
     Determine if a curveball event should trigger.
+    Lower probability for phase 2/3 since events are smaller.
 
     Args:
         state: Current game state
@@ -169,19 +327,19 @@ def should_trigger_curveball(state: GameState) -> bool:
     Returns:
         True if curveball should trigger
     """
-    # Base probability
-    base_prob = 0.15
+    # Base probability (lower for phase 2/3)
+    base_prob = 0.08 if state.month_phase in [2, 3] else 0.15
 
     # Increase probability based on risk factors
     if state.risk_factors.get("has_car"):
-        base_prob += 0.05
+        base_prob += 0.03
     if state.risk_factors.get("has_pet"):
-        base_prob += 0.05
+        base_prob += 0.03
     if state.debts > state.monthly_income * 3:
-        base_prob += 0.1
+        base_prob += 0.05
 
-    # Never on first 3 steps
-    if state.current_step < 3:
+    # Never on first month
+    if state.months_passed < 1:
         return False
 
     return random.random() < base_prob
@@ -190,6 +348,7 @@ def should_trigger_curveball(state: GameState) -> bool:
 def generate_curveball_event(state: GameState) -> Dict:
     """
     Generate a curveball event with options.
+    Scales costs based on month phase (smaller for phase 2/3).
 
     Args:
         state: Current game state
@@ -197,57 +356,72 @@ def generate_curveball_event(state: GameState) -> Dict:
     Returns:
         Dictionary with event details
     """
+    # Scale factor for phase 2/3 events (smaller costs)
+    scale = 0.4 if state.month_phase in [2, 3] else 1.0
+
     curveballs = []
 
     # Car-related curveballs
     if state.risk_factors.get("has_car"):
-        curveballs.extend([
-            {
-                "narrative": "Your car suddenly breaks down and needs urgent repairs. The mechanic quotes €1,200.",
+        if scale < 1.0:
+            # Smaller car issues for phase 2/3
+            curveballs.append({
+                "narrative": "Your car needs a minor repair. The mechanic quotes €" + str(int(250 * scale)) + ".",
                 "type": "car_repair",
-                "cost": 1200
-            },
-            {
-                "narrative": "Your car insurance premium is increasing by 30% next month.",
-                "type": "insurance_increase",
-                "monthly_cost": 60
-            }
-        ])
+                "cost": 250 * scale
+            })
+        else:
+            # Larger issues for phase 1
+            curveballs.extend([
+                {
+                    "narrative": "Your car suddenly breaks down and needs urgent repairs. The mechanic quotes €1,200.",
+                    "type": "car_repair",
+                    "cost": 1200
+                },
+                {
+                    "narrative": "Your car insurance premium is increasing by 30% next month.",
+                    "type": "insurance_increase",
+                    "monthly_cost": 60
+                }
+            ])
 
     # Pet-related curveballs
     if state.risk_factors.get("has_pet"):
+        cost = 800 * scale
         curveballs.append({
-            "narrative": "Your pet needs urgent veterinary care. The vet bill is €800.",
+            "narrative": f"Your pet needs veterinary care. The vet bill is €{int(cost)}.",
             "type": "vet_bill",
-            "cost": 800
+            "cost": cost
         })
 
-    # Housing curveballs
-    if state.risk_factors.get("has_rental"):
-        curveballs.append({
-            "narrative": "Your landlord is increasing rent by €150 per month starting next month.",
-            "type": "rent_increase",
-            "monthly_cost": 150
-        })
-
-    # Always available curveballs
+    # Always available curveballs (scaled for phase)
     curveballs.extend([
         {
-            "narrative": "Surprise! You received a tax refund of €600.",
-            "type": "tax_refund",
-            "gain": 600
-        },
-        {
-            "narrative": "Your employer announced unexpected bonuses. You receive €1,000!",
+            "narrative": f"Surprise! You received €{int(400 * scale)} from a side gig payment.",
             "type": "bonus",
-            "gain": 1000
+            "gain": 400 * scale
         },
         {
-            "narrative": "A close friend invites you on an amazing trip abroad. It would cost €1,500.",
-            "type": "trip_opportunity",
-            "cost": 1500
+            "narrative": f"Your phone/laptop needs an urgent repair costing €{int(300 * scale)}.",
+            "type": "tech_repair",
+            "cost": 300 * scale
         }
     ])
+
+    # Only big opportunities in phase 1
+    if scale >= 1.0:
+        curveballs.extend([
+            {
+                "narrative": "Surprise! You received a tax refund of €600.",
+                "type": "tax_refund",
+                "gain": 600
+            },
+            {
+                "narrative": "Your employer announced unexpected bonuses. You receive €1,000!",
+                "type": "bonus_large",
+                "gain": 1000
+            }
+        ])
 
     return random.choice(curveballs)
 

@@ -62,6 +62,16 @@ export const useGameStore = create(
         }),
 
       // ===================================
+      // TRANSACTION SUMMARY (from last decision)
+      // ===================================
+      lastTransaction: null,
+
+      setLastTransaction: (transaction) =>
+        set({
+          lastTransaction: transaction,
+        }),
+
+      // ===================================
       // UI PREFERENCES
       // ===================================
       soundEnabled: true,

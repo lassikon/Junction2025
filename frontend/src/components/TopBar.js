@@ -7,7 +7,7 @@ import "../styles/TopBar.css";
 /**
  * TopBar - Header with API status and game controls
  */
-const TopBar = () => {
+const TopBar = ({ onShowTransactions }) => {
   const navigate = useNavigate();
   const { data: healthStatus } = useHealthCheck();
   const { resetGame } = useGameStore();
@@ -35,6 +35,11 @@ const TopBar = () => {
         <div className={`api-status status-${apiStatus}`}>
           API: {apiStatus}
         </div>
+        {onShowTransactions && (
+          <button onClick={onShowTransactions} className="btn-transactions">
+            📊 History
+          </button>
+        )}
         <button onClick={handleNewGame} className="btn-new-game">
           New Game
         </button>

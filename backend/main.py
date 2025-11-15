@@ -12,7 +12,8 @@ from database import init_db, close_db, get_session
 from models import (
     PlayerProfile, GameState, DecisionHistory, LeaderboardEntry,
     OnboardingRequest, GameStateResponse, OnboardingResponse, GameStatus,
-    DecisionRequest, DecisionResponse
+    DecisionRequest, DecisionResponse, TransactionLog, TransactionSummary,
+    MonthlyCashFlowSummary
 )
 from utils import initialize_game_state, generate_session_id, calculate_fi_score
 from game_engine import (
@@ -387,6 +388,70 @@ async def get_game_state(
             status_code=500, detail=f"Error retrieving game state: {str(e)}")
 
 
+@app.get("/api/transactions/{session_id}", response_model=List[dict], tags=["Game"])
+async def get_transaction_logs(
+    session_id: str,
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Get transaction history for a player session
+
+    Retrieve all financial transactions made during the game for detailed tracking.
+    Frontend can display these with color coding (green for gains, red for losses).
+
+    **Parameters:**
+    - **session_id**: Player's unique session identifier
+
+    **Returns:** List of all transactions with changes and balances
+    """
+    try:
+        # Find the profile
+        result = await session.execute(
+            select(PlayerProfile).where(PlayerProfile.session_id == session_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get all transaction logs
+        result = await session.execute(
+            select(TransactionLog)
+            .where(TransactionLog.profile_id == profile.id)
+            .order_by(TransactionLog.step_number)
+        )
+        transactions = result.scalars().all()
+
+        return [
+            {
+                "step_number": t.step_number,
+                "event_type": t.event_type,
+                "chosen_option": t.chosen_option,
+                "cash_change": t.cash_change,
+                "investment_change": t.investment_change,
+                "debt_change": t.debt_change,
+                "monthly_income_change": t.monthly_income_change,
+                "monthly_expense_change": t.monthly_expense_change,
+                "passive_income_change": t.passive_income_change,
+                "cash_balance": t.cash_balance,
+                "investment_balance": t.investment_balance,
+                "debt_balance": t.debt_balance,
+                "monthly_income_total": t.monthly_income_total,
+                "monthly_expense_total": t.monthly_expense_total,
+                "passive_income_total": t.passive_income_total,
+                "description": t.description,
+                "created_at": t.created_at.isoformat()
+            }
+            for t in transactions
+        ]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving transaction logs: {str(e)}")
+
+
 @app.get("/api/leaderboard", response_model=List[dict], tags=["Leaderboard"])
 async def get_leaderboard(
     limit: int = 10,
@@ -474,6 +539,33 @@ async def process_decision(
         if game_state.game_status != GameStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Game is not active")
 
+        # Apply monthly cash flow (only on phase 1 - start of month)
+        from game_engine import apply_monthly_cash_flow, get_month_phase_name, get_current_month_name
+        cash_flow_data = apply_monthly_cash_flow(game_state)
+
+        # Log the monthly cash flow as a transaction (only if applied)
+        if cash_flow_data.get("applied", False):
+            monthly_flow_log = TransactionLog(
+                profile_id=profile.id,
+                step_number=game_state.current_step,
+                event_type="monthly_cash_flow",
+                chosen_option=f"New month: {get_current_month_name(game_state.months_passed)}",
+                cash_change=cash_flow_data["cash_change"],
+                investment_change=0,
+                debt_change=cash_flow_data["debt_from_deficit"],
+                monthly_income_change=0,
+                monthly_expense_change=0,
+                passive_income_change=0,
+                cash_balance=cash_flow_data["cash_balance"],
+                investment_balance=game_state.investments,
+                debt_balance=game_state.debts,
+                monthly_income_total=game_state.monthly_income,
+                monthly_expense_total=game_state.monthly_expenses,
+                passive_income_total=game_state.passive_income,
+                description=f"New month: Income €{cash_flow_data['income_received']:.0f} - Expenses €{cash_flow_data['expenses_paid']:.0f}"
+            )
+            db_session.add(monthly_flow_log)
+
         # Get the current event type for this step
         current_event_type = get_event_type(game_state, profile)
 
@@ -541,7 +633,7 @@ async def process_decision(
         social_before = game_state.social_life
         step_number = game_state.current_step
 
-        # Apply decision effects
+        # Apply decision effects and get transaction summary
         effect = setup_dynamic_option_effect(chosen_option_data)
 
         # Debug: Log effect details
@@ -551,7 +643,7 @@ async def process_decision(
         print(
             f"  Before - Investments: {investments_before}, Money: {money_before}")
 
-        apply_decision_effects(game_state, effect)
+        transaction_data = apply_decision_effects(game_state, effect)
 
         print(
             f"  After - Investments: {game_state.investments}, Money: {game_state.money}")
@@ -596,6 +688,29 @@ async def process_decision(
         )
 
         db_session.add(decision_record)
+
+        # Create transaction log entry
+        transaction_log = TransactionLog(
+            profile_id=profile.id,
+            step_number=step_number,
+            event_type=current_event_type,
+            chosen_option=request.chosen_option,
+            cash_change=transaction_data["cash_change"],
+            investment_change=transaction_data["investment_change"],
+            debt_change=transaction_data["debt_change"],
+            monthly_income_change=transaction_data["monthly_income_change"],
+            monthly_expense_change=transaction_data["monthly_expense_change"],
+            passive_income_change=transaction_data["passive_income_change"],
+            cash_balance=transaction_data["cash_balance"],
+            investment_balance=transaction_data["investment_balance"],
+            debt_balance=transaction_data["debt_balance"],
+            monthly_income_total=transaction_data["monthly_income_total"],
+            monthly_expense_total=transaction_data["monthly_expense_total"],
+            passive_income_total=transaction_data["passive_income_total"],
+            description=transaction_data["description"]
+        )
+
+        db_session.add(transaction_log)
 
         # Update game state in database
         await db_session.commit()
@@ -669,12 +784,43 @@ async def process_decision(
         print(
             f"📤 RESPONSE - Investments being sent: {updated_state.investments}")
 
+        # Create transaction summary for response
+        transaction_summary = TransactionSummary(
+            cash_change=transaction_data["cash_change"],
+            investment_change=transaction_data["investment_change"],
+            debt_change=transaction_data["debt_change"],
+            monthly_income_change=transaction_data["monthly_income_change"],
+            monthly_expense_change=transaction_data["monthly_expense_change"],
+            passive_income_change=transaction_data["passive_income_change"],
+            cash_balance=transaction_data["cash_balance"],
+            investment_balance=transaction_data["investment_balance"],
+            debt_balance=transaction_data["debt_balance"],
+            monthly_income_total=transaction_data["monthly_income_total"],
+            monthly_expense_total=transaction_data["monthly_expense_total"],
+            passive_income_total=transaction_data["passive_income_total"],
+            description=transaction_data["description"]
+        )
+
+        # Create monthly cash flow summary for response
+        monthly_cash_flow_summary = MonthlyCashFlowSummary(
+            applied=cash_flow_data.get("applied", False),
+            income_received=cash_flow_data.get("income_received", 0.0),
+            expenses_paid=cash_flow_data.get("expenses_paid", 0.0),
+            net_change=cash_flow_data.get("cash_change", 0.0),
+            debt_from_deficit=cash_flow_data.get("debt_from_deficit", 0.0),
+            month_name=get_current_month_name(game_state.months_passed),
+            month_phase=game_state.month_phase,
+            month_phase_name=get_month_phase_name(game_state.month_phase)
+        )
+
         return DecisionResponse(
             consequence_narrative=consequence,
             updated_state=updated_state,
             next_narrative=next_narrative,
             next_options=next_options,
-            learning_moment=learning
+            learning_moment=learning,
+            transaction_summary=transaction_summary,
+            monthly_cash_flow=monthly_cash_flow_summary
         )
 
     except HTTPException:
