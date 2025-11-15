@@ -270,10 +270,11 @@ async def create_player(
         # Generate initial narrative and options
         initial_event_type = get_event_type(game_state, profile)
 
-        initial_narrative = generate_event_narrative(
+        initial_narrative = await generate_event_narrative(
             event_type=initial_event_type,
             state=game_state,
             profile=profile,
+            db_session=session,
             curveball=None,
             client=client
         )
@@ -493,6 +494,124 @@ async def get_leaderboard(
             status_code=500, detail=f"Error retrieving leaderboard: {str(e)}")
 
 
+@app.get("/api/game/{session_id}/decisions", tags=["Game"])
+async def get_decision_history(
+    session_id: str,
+    limit: Optional[int] = 10,
+    db_session: AsyncSession = Depends(get_session)
+):
+    """
+    Get decision history for a player session
+    
+    Retrieves the player's past decisions with before/after states.
+    Includes automatic summarization if history exceeds 10 decisions.
+    
+    **Parameters:**
+    - **session_id**: Player's session ID
+    - **limit**: Maximum number of recent decisions to return (default: 10)
+    
+    **Returns:** Decision history with states, or summary + recent decisions
+    """
+    try:
+        # Get player profile
+        result = await db_session.execute(
+            select(PlayerProfile).where(PlayerProfile.session_id == session_id)
+        )
+        profile = result.scalar_one_or_none()
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Get game state for current info
+        result = await db_session.execute(
+            select(GameState).where(GameState.profile_id == profile.id)
+        )
+        game_state = result.scalar_one_or_none()
+        
+        if not game_state:
+            raise HTTPException(status_code=404, detail="Game state not found")
+        
+        # Get total count of decisions
+        from sqlmodel import func
+        count_result = await db_session.execute(
+            select(func.count(DecisionHistory.id))
+            .where(DecisionHistory.profile_id == profile.id)
+        )
+        total_decisions = count_result.scalar()
+        
+        # Get decision history
+        from utils import get_recent_decisions, create_decision_summary
+        
+        decisions = await get_recent_decisions(
+            profile_id=profile.id,
+            db_session=db_session,
+            limit=limit
+        )
+        
+        # Format decisions for response
+        decision_list = []
+        for d in decisions:
+            decision_list.append({
+                "step": d.step_number,
+                "event_type": d.event_type,
+                "narrative": d.narrative,
+                "chosen_option": d.chosen_option,
+                "consequence": d.consequence_narrative,
+                "learning_moment": d.learning_moment,
+                "before": {
+                    "fi_score": d.fi_score_before,
+                    "money": d.money_before,
+                    "energy": d.energy_before,
+                    "motivation": d.motivation_before,
+                    "social": d.social_before
+                },
+                "after": {
+                    "fi_score": d.fi_score_after,
+                    "money": d.money_after,
+                    "energy": d.energy_after,
+                    "motivation": d.motivation_after,
+                    "social": d.social_after
+                }
+            })
+        
+        # Generate summary if needed
+        summary = None
+        if total_decisions > 10:
+            # Get all decisions for summary
+            all_result = await db_session.execute(
+                select(DecisionHistory)
+                .where(DecisionHistory.profile_id == profile.id)
+                .order_by(DecisionHistory.step_number)
+            )
+            all_decisions = all_result.scalars().all()
+            
+            summary = await create_decision_summary(
+                decisions=list(all_decisions),
+                current_age=game_state.current_age,
+                current_fi_score=game_state.fi_score
+            )
+        
+        return {
+            "session_id": session_id,
+            "total_decisions": total_decisions,
+            "decisions": decision_list,
+            "summary": summary,
+            "current_state": {
+                "age": game_state.current_age,
+                "fi_score": game_state.fi_score,
+                "step": game_state.current_step
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Failed to retrieve decision history: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 async def process_decision(
     request: DecisionRequest,
@@ -577,10 +696,11 @@ async def process_decision(
             current_narrative = curveball["narrative"]
         else:
             # Generate narrative for current state to provide context for options
-            current_narrative = generate_event_narrative(
+            current_narrative = await generate_event_narrative(
                 event_type=current_event_type,
                 state=game_state,
                 profile=profile,
+                db_session=db_session,
                 curveball=curveball,
                 client=client
             )
@@ -679,11 +799,12 @@ async def process_decision(
             life_metrics_changes.knowledge_change = effect.knowledge_change
 
         # Generate consequence narrative
-        consequence = generate_consequence_narrative(
+        consequence = await generate_consequence_narrative(
             chosen_option=request.chosen_option,
             option_effect=chosen_option_data,
             state=game_state,
             profile=profile,
+            db_session=db_session,
             client=client
         )
 
@@ -700,7 +821,7 @@ async def process_decision(
             profile_id=profile.id,
             step_number=step_number,
             event_type=current_event_type,
-            narrative="",  # Will be filled from previous step's next_narrative
+            narrative=current_narrative,  # Store the event narrative
             options_presented=[opt["text"] for opt in available_options],
             chosen_option=request.chosen_option,
             money_before=money_before,
@@ -746,23 +867,28 @@ async def process_decision(
         await db_session.commit()
         await db_session.refresh(game_state)
 
-        # RAG-ENHANCED: Index this decision for future retrieval
-        try:
-            rag = get_rag_service()
-            rag.index_player_decision(
-                session_id=request.session_id,
-                step=step_number,
-                event_type=current_event_type,
-                chosen_option=request.chosen_option,
-                consequence=consequence,
-                fi_score=game_state.fi_score,
-                age=game_state.current_age,
-                education=profile.education_path
-            )
-            print(f"✅ Indexed decision for RAG (step {step_number})")
-        except Exception as e:
-            print(f"⚠️ Failed to index decision: {e}")
-            # Non-fatal error, continue game flow
+        # NOTE: RAG decision indexing disabled for MVP (using SQLite DecisionHistory instead)
+        # TODO (Future): When we have 100+ users, enable cross-player similarity search:
+        #   - Uncomment RAG indexing below
+        #   - Use retrieve_similar_decisions() for "What did others do?" insights
+        #   - Current approach: SQLite for personal history (fast, simple)
+        #   - Future approach: RAG for cross-player patterns (semantic similarity)
+        # 
+        # try:
+        #     rag = get_rag_service()
+        #     rag.index_player_decision(
+        #         session_id=request.session_id,
+        #         step=step_number,
+        #         event_type=current_event_type,
+        #         chosen_option=request.chosen_option,
+        #         consequence=consequence,
+        #         fi_score=game_state.fi_score,
+        #         age=game_state.current_age,
+        #         education=profile.education_path
+        #     )
+        #     print(f"✅ Indexed decision for RAG (step {step_number})")
+        # except Exception as e:
+        #     print(f"⚠️ Failed to index decision: {e}")
 
         # Generate next event
         next_event_type = get_event_type(game_state, profile)
@@ -771,10 +897,11 @@ async def process_decision(
             next_curveball = generate_curveball_event(game_state)
 
         # Generate next narrative
-        next_narrative = generate_event_narrative(
+        next_narrative = await generate_event_narrative(
             event_type=next_event_type,
             state=game_state,
             profile=profile,
+            db_session=db_session,
             curveball=next_curveball,
             client=client
         )
