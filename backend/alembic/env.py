@@ -9,7 +9,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Import SQLModel and your models
 from sqlmodel import SQLModel
-from models import User, ChatHistory  # Import all your models here
+from models import (
+    PlayerProfile, GameState, DecisionHistory, LeaderboardEntry,
+    ChatSession, ChatMessage, ChatSummary
+)  # Import all table models here
 from database import DATABASE_URL
 
 # this is the Alembic Config object, which provides

@@ -6,6 +6,7 @@ This module defines the SQLModel models for:
 - Game sessions
 - Decision history
 - Leaderboard entries
+- Chat sessions and messages
 """
 
 from typing import Optional, List
@@ -34,6 +35,12 @@ class GameStatus(str, Enum):
     ACTIVE = "active"
     COMPLETED = "completed"
     ABANDONED = "abandoned"
+
+
+class ChatRole(str, Enum):
+    """Role of chat message sender"""
+    USER = "user"
+    ASSISTANT = "assistant"
 
 
 # Player Profile Model
@@ -72,6 +79,8 @@ class PlayerProfile(SQLModel, table=True):
     game_state: Optional["GameState"] = Relationship(
         back_populates="player_profile")
     decisions: List["DecisionHistory"] = Relationship(
+        back_populates="player_profile")
+    chat_sessions: List["ChatSession"] = Relationship(
         back_populates="player_profile")
 
 
@@ -259,6 +268,90 @@ class LeaderboardEntry(SQLModel, table=True):
         arbitrary_types_allowed = True
 
 
+# Chat Models
+class ChatSession(SQLModel, table=True):
+    """
+    Stores chat session data for each player.
+    Each player can have one active chat session per game session.
+    """
+    __tablename__ = "chat_sessions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # Unique identifier for this chat session (UUID)
+    chat_session_id: str = Field(index=True, unique=True)
+    # Link to player profile
+    profile_id: int = Field(foreign_key="player_profiles.id", index=True)
+
+    # Session metadata
+    message_count: int = Field(default=0)
+    last_summary_at: Optional[int] = None  # Message count when last summarized
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    player_profile: PlayerProfile = Relationship(back_populates="chat_sessions")
+    messages: List["ChatMessage"] = Relationship(
+        back_populates="chat_session",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    summaries: List["ChatSummary"] = Relationship(
+        back_populates="chat_session",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+
+class ChatMessage(SQLModel, table=True):
+    """
+    Stores individual chat messages in a conversation.
+    """
+    __tablename__ = "chat_messages"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # Link to chat session
+    chat_session_id: int = Field(foreign_key="chat_sessions.id", index=True)
+
+    # Message content
+    role: ChatRole
+    content: str
+
+    # Optional metadata (e.g., model used, token count, etc.)
+    message_metadata: dict = Field(default={}, sa_column=Column(JSON))
+
+    # Timestamp
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    chat_session: ChatSession = Relationship(back_populates="messages")
+
+
+class ChatSummary(SQLModel, table=True):
+    """
+    Stores AI-generated summaries of chat history.
+    Created when message count exceeds threshold (every 10 messages).
+    """
+    __tablename__ = "chat_summaries"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # Link to chat session
+    chat_session_id: int = Field(foreign_key="chat_sessions.id", index=True)
+
+    # Summary content
+    summary_text: str
+    # Number of messages included in this summary
+    messages_included: int
+    # Message count range (e.g., messages 1-10)
+    message_range_start: int
+    message_range_end: int
+
+    # Timestamp
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    chat_session: ChatSession = Relationship(back_populates="summaries")
+
+
 # Pydantic models for API requests/responses
 
 class OnboardingRequest(SQLModel):
@@ -402,3 +495,40 @@ class LeaderboardResponse(SQLModel):
     age: int
     education_path: EducationPath
     completed_at: datetime
+
+
+# Chat API Models
+class ChatRequest(SQLModel):
+    """Request model for sending a chat message"""
+    session_id: str
+    message: str
+    model: Optional[str] = "gemini-2.0-flash-exp"
+
+
+class ChatResponse(SQLModel):
+    """Response model for chat message"""
+    response: str
+    session_id: str
+    chat_session_id: str
+    message_id: int
+    model: str
+
+
+class ChatMessageResponse(SQLModel):
+    """Response model for individual chat message"""
+    id: int
+    role: ChatRole
+    content: str
+    created_at: datetime
+
+
+class ChatHistoryResponse(SQLModel):
+    """Response model for chat history with pagination"""
+    session_id: str
+    chat_session_id: str
+    messages: List[ChatMessageResponse]
+    summary: Optional[str] = None
+    total_count: int
+    current_page: int
+    page_size: int
+    has_more: bool
