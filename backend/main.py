@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from database import init_db, close_db, get_session
 from models import (
-    PlayerProfile, GameState, DecisionHistory, LeaderboardEntry,
+    PlayerProfile, GameState, DecisionHistory, LeaderboardEntry, TransactionLog,
     OnboardingRequest, GameStateResponse, OnboardingResponse, GameStatus,
     DecisionRequest, DecisionResponse, ChatRequest, ChatResponse,
-    ChatHistoryResponse, ChatMessageResponse, ChatRole, ChatSession, ChatMessage
+    ChatHistoryResponse, ChatMessageResponse, ChatRole, ChatSession, ChatMessage,
+    LifeMetricsChanges, TransactionSummary, MonthlyCashFlowSummary
 )
 from utils import initialize_game_state, generate_session_id, calculate_fi_score
 from game_engine import (

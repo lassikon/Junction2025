@@ -21,10 +21,36 @@ done
 # Check if PDFs are already indexed
 echo ""
 echo "🔍 Checking if PDFs are indexed..."
-INDEXED_COUNT=$(python3 -c "from rag_service import RAGService; import os; os.environ.setdefault('GEMINI_API_KEY', 'check'); rag = RAGService(chroma_host='chromadb', chroma_port=8000); result = rag.financial_concepts.get(where={'type': 'pdf'}); print(len(result['ids']) if result['ids'] else 0)" 2>/dev/null)
 
-if [ "$INDEXED_COUNT" -gt 0 ]; then
-    echo "✅ Found $INDEXED_COUNT PDF chunks already indexed - skipping indexing"
+# Create a temporary Python script to check indexing
+python3 << 'PYTHON_SCRIPT' > /tmp/check_index.txt 2>&1
+import sys
+try:
+    from rag_service import RAGService
+    import os
+    # Suppress RAG initialization messages
+    import io
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    
+    rag = RAGService(chroma_host='chromadb', chroma_port=8000)
+    result = rag.financial_concepts.get(where={'type': 'pdf'}, limit=1)
+    
+    sys.stdout = old_stdout
+    count = len(result['ids']) if result and result.get('ids') else 0
+    print(count)
+    sys.exit(0)
+except Exception as e:
+    sys.stdout = old_stdout
+    print(0)
+    sys.exit(0)
+PYTHON_SCRIPT
+
+INDEXED_COUNT=$(cat /tmp/check_index.txt | tail -1)
+
+# Check if we got a valid number
+if [[ "$INDEXED_COUNT" =~ ^[0-9]+$ ]] && [ "$INDEXED_COUNT" -gt 0 ]; then
+    echo "✅ Found PDF chunks already indexed - skipping re-indexing"
 else
     echo "📚 No PDFs indexed yet - running indexing..."
     python3 /app/index_pdfs.py

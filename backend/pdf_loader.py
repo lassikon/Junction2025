@@ -40,7 +40,8 @@ def load_pdfs_with_pymupdf(pdf_directory: str) -> List[Dict]:
             doc = fitz.open(pdf_path)
             
             full_text = []
-            for page_num in range(len(doc)):
+            page_count = len(doc)  # Store page count before closing
+            for page_num in range(page_count):
                 page = doc[page_num]
                 
                 # Extract text with layout preservation (maintains table structure)
@@ -74,10 +75,12 @@ def load_pdfs_with_pymupdf(pdf_directory: str) -> List[Dict]:
                     'page': i  # Approximate page (chunk index)
                 })
             
-            print(f"  ✅ {filename}: {len(doc)} pages → {len(chunks)} chunks")
+            print(f"  ✅ {filename}: {page_count} pages → {len(chunks)} chunks")
             
         except Exception as e:
             print(f"  ❌ Failed to load {filename}: {e}")
+            import traceback
+            traceback.print_exc()
     
     print(f"📚 Total: {len(documents)} chunks from {len(pdf_files)} PDFs")
     return documents
