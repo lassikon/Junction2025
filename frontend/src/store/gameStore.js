@@ -90,6 +90,7 @@ export const useGameStore = create(
       showDecisionModal: false,
       showConsequenceModal: false,
       showOnboarding: true,
+      showChatbot: false,
 
       openDecisionModal: () => set({ showDecisionModal: true }),
       closeDecisionModal: () => set({ showDecisionModal: false }),
@@ -102,6 +103,9 @@ export const useGameStore = create(
         }),
 
       setShowOnboarding: (show) => set({ showOnboarding: show }),
+
+      toggleChatbot: () => set((state) => ({ showChatbot: !state.showChatbot })),
+      closeChatbot: () => set({ showChatbot: false }),
 
       // ===================================
       // CONSEQUENCE DATA (temporary)
