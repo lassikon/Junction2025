@@ -28,6 +28,8 @@ from ai_narrative import (
     generate_event_narrative, generate_consequence_narrative,
     generate_learning_moment, generate_dynamic_options, get_ai_client
 )
+from financial_calculator import calculate_effects_from_llm
+from mcp_client import close_mcp_client
 from rag_service import RAGService, get_rag_service
 import rag_service as rag_module
 from chat_utils import (
@@ -86,6 +88,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     print("👋 Shutting down LifeSim API...")
+    await close_mcp_client()
     await close_db()
 
 
@@ -840,7 +843,7 @@ async def create_player(
             event_type=initial_event_type,
             state=game_state,
             profile=profile,
-            db_session=session,
+            db_session=None,
             curveball=None,
             client=client
         )
@@ -1212,7 +1215,7 @@ async def generate_and_cache_next_question(
             event_type=next_event_type,
             state=game_state,
             profile=profile,
-            db_session=db_session,
+            db_session=None,  # Don't pass session to avoid state errors
             curveball=next_curveball,
             client=client
         )
@@ -1390,15 +1393,28 @@ async def process_decision(
         )
 
         consequence = consequence_result['narrative']
-        effects_dict = consequence_result['effects']
-
+        
+        # NEW: Use MCP financial calculator to determine actual effects
         print(f"📜 Consequence: {consequence[:100]}...")
-        print(f"💰 Effects from AI:")
+        print(f"🧮 Calculating effects via MCP financial server...")
+        
+        game_state_snapshot = {
+            "money": state_before['money'],
+            "investments": game_state.investments
+        }
+        
+        effects_dict = await calculate_effects_from_llm(
+            llm_response=consequence_result,
+            game_state_before=game_state_snapshot
+        )
+        
+        print(f"💰 Calculated effects:")
         print(f"  Money: {effects_dict.get('money_change', 0)}")
         print(f"  Investments: {effects_dict.get('investment_change', 0)}")
+        print(f"  Passive Income: {effects_dict.get('passive_income_change', 0)}")
         print(f"  Debt: {effects_dict.get('debt_change', 0)}")
 
-        # NOW apply the effects that the AI determined
+        # NOW apply the effects that the MCP calculated
         effect = setup_dynamic_option_effect(effects_dict)
         transaction_data = apply_decision_effects(game_state, effect)
 
@@ -1684,7 +1700,7 @@ async def get_next_question(
             event_type=next_event_type,
             state=game_state,
             profile=profile,
-            db_session=db_session,
+            db_session=None,
             curveball=next_curveball,
             client=client
         )

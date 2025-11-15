@@ -57,6 +57,10 @@ else
 fi
 
 echo ""
+echo "📦 Installing MCP Python SDK..."
+pip3 install mcp --break-system-packages
+
+echo ""
 echo "🎮 Starting LifeSim backend server..."
 echo "================================"
 exec python3 /app/start_server.py
