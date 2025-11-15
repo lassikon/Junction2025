@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useHealthCheck } from "../api/lifesim";
 import { useGameStore } from "../store/gameStore";
+import LeaderboardModal from "./LeaderboardModal";
 import "../styles/TopBar.css";
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -14,6 +15,7 @@ const TopBar = ({ onShowTransactions, playerState }) => {
   const navigate = useNavigate();
   const { data: healthStatus } = useHealthCheck();
   const { resetGame, authToken, displayName, isTestMode, clearAll } = useGameStore();
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   const apiStatus = healthStatus?.status === "healthy" ? "connected" : "disconnected";
 
@@ -91,6 +93,12 @@ const TopBar = ({ onShowTransactions, playerState }) => {
         <div className={`api-status status-${apiStatus}`}>
           API: {apiStatus}
         </div>
+        <button 
+          onClick={() => setShowLeaderboard(true)} 
+          className="btn-leaderboard"
+        >
+          🏆 Leaderboard
+        </button>
         {onShowTransactions && (
           <button onClick={onShowTransactions} className="btn-transactions">
             📊 History
@@ -110,6 +118,11 @@ const TopBar = ({ onShowTransactions, playerState }) => {
           </button>
         )}
       </div>
+      
+      <LeaderboardModal 
+        isOpen={showLeaderboard} 
+        onClose={() => setShowLeaderboard(false)} 
+      />
     </div>
   );
 };
