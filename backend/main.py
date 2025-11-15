@@ -138,7 +138,10 @@ else:
 # CORS middleware for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4000"],
+    allow_origins=[
+        "http://localhost:4000",
+        "https://lifesim.vaalanti.fi"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

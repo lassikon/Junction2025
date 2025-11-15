@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config/api';
 import { useGameStore } from '../store/gameStore';
 import './AuthForm.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 function RegisterForm({ onSuccess, onBack }) {
   const [formData, setFormData] = useState({

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config/api';
 import '../styles/FloatingChatbot.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 /**
  * FloatingChatbot - A floating money mentor chatbot

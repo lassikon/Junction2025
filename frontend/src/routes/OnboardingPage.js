@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
+import { API_URL } from "../config/api";
 import Onboarding from "../components/Onboarding";
 import { useOnboarding } from "../api/lifesim";
 import { useGameStore } from "../store/gameStore";
 import "../styles/OnboardingPage.css";
-
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 /**
  * OnboardingPage - Entry point for new players

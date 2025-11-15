@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useGameStore } from "../store/gameStore";
+import { API_URL } from "../config/api";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 // Helper to get auth headers
 const getAuthHeaders = () => {
