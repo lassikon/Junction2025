@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import os
+import time
+from contextlib import contextmanager
 from dotenv import load_dotenv
 from google import genai
 from contextlib import asynccontextmanager
@@ -35,6 +37,21 @@ from chat_utils import (
 from chat_ai import generate_chat_response
 
 load_dotenv()
+
+
+# =====================================================
+# Performance Monitoring - Easy to remove
+# =====================================================
+@contextmanager
+def timer(operation_name: str):
+    """Context manager to time operations. Remove this block to disable timing."""
+    start = time.time()
+    try:
+        yield
+    finally:
+        duration = time.time() - start
+        print(f"⏱️  {operation_name}: {duration:.3f}s")
+# =====================================================
 
 
 @asynccontextmanager
@@ -848,31 +865,37 @@ async def process_decision(
 
     **Returns:** Updated game state, consequence narrative, and next decision options
     """
+    # === TIMING: Remove this line and all 'with timer()' blocks to disable ===
+    start_total = time.time()
+    
     try:
         # Get player profile and game state
-        result = await db_session.execute(
-            select(PlayerProfile).where(
-                PlayerProfile.session_id == request.session_id)
-        )
-        profile = result.scalar_one_or_none()
+        with timer("1. DB: Fetch profile and game state"):
+            result = await db_session.execute(
+                select(PlayerProfile).where(
+                    PlayerProfile.session_id == request.session_id)
+            )
+            profile = result.scalar_one_or_none()
 
-        if not profile:
-            raise HTTPException(status_code=404, detail="Session not found")
+            if not profile:
+                raise HTTPException(status_code=404, detail="Session not found")
 
-        result = await db_session.execute(
-            select(GameState).where(GameState.profile_id == profile.id)
-        )
-        game_state = result.scalar_one_or_none()
+            result = await db_session.execute(
+                select(GameState).where(GameState.profile_id == profile.id)
+            )
+            game_state = result.scalar_one_or_none()
 
-        if not game_state:
-            raise HTTPException(status_code=404, detail="Game state not found")
+            if not game_state:
+                raise HTTPException(status_code=404, detail="Game state not found")
 
-        if game_state.game_status != GameStatus.ACTIVE:
-            raise HTTPException(status_code=400, detail="Game is not active")
+            if game_state.game_status != GameStatus.ACTIVE:
+                raise HTTPException(status_code=400, detail="Game is not active")
 
         # Apply monthly cash flow (only on phase 1 - start of month)
         from game_engine import apply_monthly_cash_flow, get_month_phase_name, get_current_month_name
-        cash_flow_data = apply_monthly_cash_flow(game_state)
+        
+        with timer("2. Apply monthly cash flow"):
+            cash_flow_data = apply_monthly_cash_flow(game_state)
 
         # Log the monthly cash flow as a transaction (only if applied)
         if cash_flow_data.get("applied", False):
@@ -898,33 +921,36 @@ async def process_decision(
             db_session.add(monthly_flow_log)
 
         # Get the current event type for this step
-        current_event_type = get_event_type(game_state, profile)
+        with timer("3. Get event type"):
+            current_event_type = get_event_type(game_state, profile)
 
         # Generate curveball if needed
         curveball = None
         current_narrative = ""
-        if current_event_type == "curveball":
-            curveball = generate_curveball_event(game_state)
-            current_narrative = curveball["narrative"]
-        else:
-            # Generate narrative for current state to provide context for options
-            current_narrative = await generate_event_narrative(
-                event_type=current_event_type,
-                state=game_state,
-                profile=profile,
-                db_session=db_session,
-                curveball=curveball,
-                client=client
-            )
+        with timer("4. AI: Generate current narrative"):
+            if current_event_type == "curveball":
+                curveball = generate_curveball_event(game_state)
+                current_narrative = curveball["narrative"]
+            else:
+                # Generate narrative for current state to provide context for options
+                current_narrative = await generate_event_narrative(
+                    event_type=current_event_type,
+                    state=game_state,
+                    profile=profile,
+                    db_session=db_session,
+                    curveball=curveball,
+                    client=client
+                )
 
         # Generate dynamic options with AI
-        available_options = generate_dynamic_options(
-            event_type=current_event_type,
-            narrative=current_narrative,
-            state=game_state,
-            profile=profile,
-            client=client
-        )
+        with timer("5. AI: Generate dynamic options"):
+            available_options = generate_dynamic_options(
+                event_type=current_event_type,
+                narrative=current_narrative,
+                state=game_state,
+                profile=profile,
+                client=client
+            )
 
         # Extract option texts for recording
         option_texts = [opt["text"] for opt in available_options]
@@ -972,30 +998,31 @@ async def process_decision(
         step_number = game_state.current_step
 
         # Apply decision effects and get transaction summary
-        effect = setup_dynamic_option_effect(chosen_option_data)
+        with timer("6. Apply decision effects"):
+            effect = setup_dynamic_option_effect(chosen_option_data)
 
-        # Debug: Log chosen option details
-        print(f"📝 CHOSEN OPTION DEBUG:")
-        print(f"  Request option_index: {request.option_index}")
-        print(f"  Request chosen_option text: {request.chosen_option}")
-        print(f"  Matched option data:")
-        print(f"    - text: {chosen_option_data.get('text', 'N/A')}")
-        print(
-            f"    - explanation: {chosen_option_data.get('explanation', 'N/A')}")
-        print(
-            f"    - money_change: {chosen_option_data.get('money_change', 0)}")
+            # Debug: Log chosen option details
+            print(f"📝 CHOSEN OPTION DEBUG:")
+            print(f"  Request option_index: {request.option_index}")
+            print(f"  Request chosen_option text: {request.chosen_option}")
+            print(f"  Matched option data:")
+            print(f"    - text: {chosen_option_data.get('text', 'N/A')}")
+            print(
+                f"    - explanation: {chosen_option_data.get('explanation', 'N/A')}")
+            print(
+                f"    - money_change: {chosen_option_data.get('money_change', 0)}")
 
-        # Debug: Log effect details
-        print(f"💰 APPLYING EFFECTS:")
-        print(f"  Investment change: {effect.investment_change}")
-        print(f"  Money change: {effect.money_change}")
-        print(
-            f"  Before - Investments: {investments_before}, Money: {money_before}")
+            # Debug: Log effect details
+            print(f"💰 APPLYING EFFECTS:")
+            print(f"  Investment change: {effect.investment_change}")
+            print(f"  Money change: {effect.money_change}")
+            print(
+                f"  Before - Investments: {investments_before}, Money: {money_before}")
 
-        transaction_data = apply_decision_effects(game_state, effect)
+            transaction_data = apply_decision_effects(game_state, effect)
 
-        print(
-            f"  After - Investments: {game_state.investments}, Money: {game_state.money}")
+            print(
+                f"  After - Investments: {game_state.investments}, Money: {game_state.money}")
 
         # Calculate life metrics changes
         life_metrics_changes = LifeMetricsChanges(
@@ -1011,22 +1038,24 @@ async def process_decision(
             life_metrics_changes.knowledge_change = effect.knowledge_change
 
         # Generate consequence narrative
-        consequence = await generate_consequence_narrative(
-            chosen_option=request.chosen_option,
-            option_effect=chosen_option_data,
-            state=game_state,
-            profile=profile,
-            db_session=db_session,
-            client=client
-        )
+        with timer("7. AI: Generate consequence narrative"):
+            consequence = await generate_consequence_narrative(
+                chosen_option=request.chosen_option,
+                option_effect=chosen_option_data,
+                state=game_state,
+                profile=profile,
+                db_session=db_session,
+                client=client
+            )
 
         # Generate learning moment (sometimes)
-        learning = generate_learning_moment(
-            chosen_option=request.chosen_option,
-            state=game_state,
-            profile=profile,
-            client=client
-        )
+        with timer("8. AI: Generate learning moment"):
+            learning = generate_learning_moment(
+                chosen_option=request.chosen_option,
+                state=game_state,
+                profile=profile,
+                client=client
+            )
 
         # Record decision in history
         decision_record = DecisionHistory(
@@ -1076,8 +1105,9 @@ async def process_decision(
         db_session.add(transaction_log)
 
         # Update game state in database
-        await db_session.commit()
-        await db_session.refresh(game_state)
+        with timer("9. DB: Commit and refresh"):
+            await db_session.commit()
+            await db_session.refresh(game_state)
 
         # NOTE: RAG decision indexing disabled for MVP (using SQLite DecisionHistory instead)
         # TODO (Future): When we have 100+ users, enable cross-player similarity search:
@@ -1103,29 +1133,31 @@ async def process_decision(
         #     print(f"⚠️ Failed to index decision: {e}")
 
         # Generate next event
-        next_event_type = get_event_type(game_state, profile)
-        next_curveball = None
-        if next_event_type == "curveball":
-            next_curveball = generate_curveball_event(game_state)
+        with timer("10. AI: Generate next narrative"):
+            next_event_type = get_event_type(game_state, profile)
+            next_curveball = None
+            if next_event_type == "curveball":
+                next_curveball = generate_curveball_event(game_state)
 
-        # Generate next narrative
-        next_narrative = await generate_event_narrative(
-            event_type=next_event_type,
-            state=game_state,
-            profile=profile,
-            db_session=db_session,
-            curveball=next_curveball,
-            client=client
-        )
+            # Generate next narrative
+            next_narrative = await generate_event_narrative(
+                event_type=next_event_type,
+                state=game_state,
+                profile=profile,
+                db_session=db_session,
+                curveball=next_curveball,
+                client=client
+            )
 
         # Generate dynamic next options with AI
-        next_options_data = generate_dynamic_options(
-            event_type=next_event_type,
-            narrative=next_narrative,
-            state=game_state,
-            profile=profile,
-            client=client
-        )
+        with timer("11. AI: Generate next options"):
+            next_options_data = generate_dynamic_options(
+                event_type=next_event_type,
+                narrative=next_narrative,
+                state=game_state,
+                profile=profile,
+                client=client
+            )
 
         next_options = [opt["text"] for opt in next_options_data]
 
@@ -1154,6 +1186,12 @@ async def process_decision(
 
         print(
             f"📤 RESPONSE - Investments being sent: {updated_state.investments}")
+        
+        # === TIMING: Print total time ===
+        total_time = time.time() - start_total
+        print(f"\n⏱️  ========================================")
+        print(f"⏱️  TOTAL /api/step execution: {total_time:.3f}s")
+        print(f"⏱️  ========================================\n")
 
         # Create timestamp for transaction
         month_name = get_current_month_name(game_state.months_passed)
