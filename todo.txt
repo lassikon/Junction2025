@@ -1,7 +1,3 @@
-- starting values persist
-- you cant have so much incomes/expenses as a 15 yo prkl
-- don't allow negative debt/income/expenses/savings
-- no starting pets, vehicles
 - milestones / end goals???
 
 kysymyksiä:

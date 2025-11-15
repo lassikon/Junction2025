@@ -201,8 +201,11 @@ def initialize_game_state(profile: PlayerProfile, monthly_income: float,
         Dictionary with initial game state values
     """
     # Determine starting conditions
-    has_car = profile.aspirations.get("own_car", False)
-    has_pet = profile.aspirations.get("own_pet", False)
+    # NOTE: aspirations are goals (what the player wants), not necessarily assets they already own.
+    # Do not treat aspirations as owned assets. If in future we add explicit owned flags (e.g. profile.owned_assets)
+    # they should be checked here. For now default to False (no car/pet owned at start).
+    has_car = False
+    has_pet = False
 
     # Calculate total monthly expenses from individual categories
     monthly_expenses = (expense_housing + expense_food + expense_transport + 

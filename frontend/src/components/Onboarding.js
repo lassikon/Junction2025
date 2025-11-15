@@ -67,18 +67,18 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
     city: defaultData?.city || "Helsinki",
     education_path: defaultData?.education_path || "",
     risk_attitude: defaultData?.risk_attitude || "",
-    monthly_income: defaultData?.monthly_income || 2000,
-    // Individual expense categories
-    expense_housing: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.4) : 450,
-    expense_food: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.25) : 300,
-    expense_transport: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.08) : 50,
-    expense_utilities: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.12) : 100,
-    expense_insurance: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.05) : 50,
-    expense_subscriptions: 0,
+    monthly_income: defaultData?.monthly_income ? String(defaultData.monthly_income) : "2000",
+    // Individual expense categories (stored as strings to allow empty input)
+    expense_housing: defaultData?.monthly_expenses ? String(Math.round(defaultData.monthly_expenses * 0.4)) : "450",
+    expense_food: defaultData?.monthly_expenses ? String(Math.round(defaultData.monthly_expenses * 0.25)) : "300",
+    expense_transport: defaultData?.monthly_expenses ? String(Math.round(defaultData.monthly_expenses * 0.08)) : "50",
+    expense_utilities: defaultData?.monthly_expenses ? String(Math.round(defaultData.monthly_expenses * 0.12)) : "100",
+    expense_insurance: defaultData?.monthly_expenses ? String(Math.round(defaultData.monthly_expenses * 0.05)) : "50",
+    expense_subscriptions: "0",
     expense_other: 0, // Not shown in form, automatically 0
     active_subscriptions: [],
-    starting_savings: defaultData?.starting_savings || 0,
-    starting_debt: defaultData?.starting_debt || 0,
+    starting_savings: defaultData?.starting_savings ? String(defaultData.starting_savings) : "0",
+    starting_debt: defaultData?.starting_debt ? String(defaultData.starting_debt) : "0",
     aspirations: defaultData?.aspirations || {},
   });
   
@@ -92,15 +92,15 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
         city: defaultData.city || prev.city,
         education_path: defaultData.education_path || prev.education_path,
         risk_attitude: defaultData.risk_attitude || prev.risk_attitude,
-        monthly_income: defaultData.monthly_income || prev.monthly_income,
-        expense_housing: totalExpenses ? Math.round(totalExpenses * 0.4) : prev.expense_housing,
-        expense_food: totalExpenses ? Math.round(totalExpenses * 0.25) : prev.expense_food,
-        expense_transport: totalExpenses ? Math.round(totalExpenses * 0.08) : prev.expense_transport,
-        expense_utilities: totalExpenses ? Math.round(totalExpenses * 0.12) : prev.expense_utilities,
-        expense_insurance: totalExpenses ? Math.round(totalExpenses * 0.05) : prev.expense_insurance,
-        expense_other: 0, // Always 0, not shown in form
-        starting_savings: defaultData.starting_savings || prev.starting_savings,
-        starting_debt: defaultData.starting_debt || prev.starting_debt,
+          monthly_income: defaultData.monthly_income ? String(defaultData.monthly_income) : prev.monthly_income,
+          expense_housing: totalExpenses ? String(Math.round(totalExpenses * 0.4)) : prev.expense_housing,
+          expense_food: totalExpenses ? String(Math.round(totalExpenses * 0.25)) : prev.expense_food,
+          expense_transport: totalExpenses ? String(Math.round(totalExpenses * 0.08)) : prev.expense_transport,
+          expense_utilities: totalExpenses ? String(Math.round(totalExpenses * 0.12)) : prev.expense_utilities,
+          expense_insurance: totalExpenses ? String(Math.round(totalExpenses * 0.05)) : prev.expense_insurance,
+          expense_other: 0, // Always 0, not shown in form
+          starting_savings: defaultData.starting_savings ? String(defaultData.starting_savings) : prev.starting_savings,
+          starting_debt: defaultData.starting_debt ? String(defaultData.starting_debt) : prev.starting_debt,
         aspirations: defaultData.aspirations || prev.aspirations,
       }));
     }
@@ -130,8 +130,19 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
         aspirationsData[key] = true;
       });
 
+      // Parse numeric string fields into numbers before sending
       const payload = {
         ...formData,
+        monthly_income: Number(formData.monthly_income) || 0,
+        expense_housing: Number(formData.expense_housing) || 0,
+        expense_food: Number(formData.expense_food) || 0,
+        expense_transport: Number(formData.expense_transport) || 0,
+        expense_utilities: Number(formData.expense_utilities) || 0,
+        expense_insurance: Number(formData.expense_insurance) || 0,
+        expense_subscriptions: Number(formData.expense_subscriptions) || 0,
+        expense_other: Number(formData.expense_other) || 0,
+        starting_savings: Number(formData.starting_savings) || 0,
+        starting_debt: Number(formData.starting_debt) || 0,
         aspirations: aspirationsData,
       };
 
@@ -166,18 +177,53 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
         return formData.education_path !== "";
       case 5:
         return formData.risk_attitude !== "";
-      case 6:
-        return formData.monthly_income > 0 && 
-               formData.expense_housing >= 0 && 
-               formData.expense_food >= 0 &&
-               formData.expense_transport >= 0 &&
-               formData.expense_utilities >= 0 &&
-               formData.expense_insurance >= 0;
-      case 7:
-        return true; // Optional step
+      case 6: {
+        // Monthly income must be provided and >= 0
+        const mi = formData.monthly_income;
+        if (mi === "" || Number.isNaN(Number(mi)) || Number(mi) < 0) return false;
+
+        // Each expense must be provided (not empty) and >= 0
+        const expenseFields = [
+          "expense_housing",
+          "expense_food",
+          "expense_transport",
+          "expense_utilities",
+          "expense_insurance",
+        ];
+        for (const f of expenseFields) {
+          const v = formData[f];
+          if (v === "" || Number.isNaN(Number(v)) || Number(v) < 0) return false;
+        }
+        return true;
+      }
+      case 7: {
+        // Starting savings and debt must be numeric and >= 0
+        const savings = formData.starting_savings;
+        const debt = formData.starting_debt;
+        if (savings === "" || Number.isNaN(Number(savings)) || Number(savings) < 0) return false;
+        if (debt === "" || Number.isNaN(Number(debt)) || Number(debt) < 0) return false;
+        return true;
+      }
       default:
         return false;
     }
+  };
+
+  // Helper to sanitize numeric input: disallow leading minus signs so users can't input negative values
+  const sanitizeNumberInput = (value) => {
+    if (value === null || value === undefined) return "";
+    let s = String(value);
+    // Remove any characters except digits and dot
+    s = s.replace(/[^0-9.]/g, "");
+    // If there are multiple dots, keep only the first
+    const firstDotIndex = s.indexOf('.');
+    if (firstDotIndex !== -1) {
+      // remove other dots
+      s = s.substring(0, firstDotIndex + 1) + s.substring(firstDotIndex + 1).replace(/\./g, '');
+    }
+    // Trim leading zeros only if followed by another digit and not a decimal like '0.'
+    // (leave input as the user typed otherwise)
+    return s;
   };
 
   const renderStep = () => {
@@ -321,13 +367,13 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
 
       case 6:
         const totalExpenses = (
-          (formData.expense_housing || 0) +
-          (formData.expense_food || 0) +
-          (formData.expense_transport || 0) +
-          (formData.expense_utilities || 0) +
-          (formData.expense_insurance || 0) +
-          (formData.expense_subscriptions || 0) +
-          (formData.expense_other || 0)
+          (Number(formData.expense_housing) || 0) +
+          (Number(formData.expense_food) || 0) +
+          (Number(formData.expense_transport) || 0) +
+          (Number(formData.expense_utilities) || 0) +
+          (Number(formData.expense_insurance) || 0) +
+          (Number(formData.expense_subscriptions) || 0) +
+          (Number(formData.expense_other) || 0)
         );
 
         const optionalSubscriptionOptions = [
@@ -340,19 +386,20 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
 
         const handleSubscriptionToggle = (subId, amount) => {
           const isActive = formData.active_subscriptions.includes(subId);
+          const current = Number(formData.expense_subscriptions) || 0;
           if (isActive) {
             // Remove subscription
             setFormData({
               ...formData,
               active_subscriptions: formData.active_subscriptions.filter(id => id !== subId),
-              expense_subscriptions: Math.max(0, formData.expense_subscriptions - amount),
+              expense_subscriptions: String(Math.max(0, current - amount)),
             });
           } else {
             // Add subscription
             setFormData({
               ...formData,
               active_subscriptions: [...formData.active_subscriptions, subId],
-              expense_subscriptions: formData.expense_subscriptions + amount,
+              expense_subscriptions: String(current + amount),
             });
           }
         };
@@ -373,10 +420,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 step="100"
                 value={formData.monthly_income}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    monthly_income: parseFloat(e.target.value) || 0,
-                  })
+                  setFormData({ ...formData, monthly_income: sanitizeNumberInput(e.target.value) })
                 }
                 className="input-field"
               />
@@ -395,12 +439,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 min="0"
                 step="50"
                 value={formData.expense_housing}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    expense_housing: parseFloat(e.target.value) || 0,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, expense_housing: sanitizeNumberInput(e.target.value) })}
                 className="input-field"
               />
             </div>
@@ -413,12 +452,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 min="0"
                 step="50"
                 value={formData.expense_food}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    expense_food: parseFloat(e.target.value) || 0,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, expense_food: sanitizeNumberInput(e.target.value) })}
                 className="input-field"
               />
             </div>
@@ -431,12 +465,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 min="0"
                 step="20"
                 value={formData.expense_utilities}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    expense_utilities: parseFloat(e.target.value) || 0,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, expense_utilities: sanitizeNumberInput(e.target.value) })}
                 className="input-field"
               />
             </div>
@@ -449,12 +478,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 min="0"
                 step="20"
                 value={formData.expense_transport}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    expense_transport: parseFloat(e.target.value) || 0,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, expense_transport: sanitizeNumberInput(e.target.value) })}
                 className="input-field"
               />
             </div>
@@ -467,12 +491,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 min="0"
                 step="10"
                 value={formData.expense_insurance}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    expense_insurance: parseFloat(e.target.value) || 0,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, expense_insurance: sanitizeNumberInput(e.target.value) })}
                 className="input-field"
               />
             </div>
@@ -540,12 +559,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 min="0"
                 step="100"
                 value={formData.starting_savings}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    starting_savings: parseFloat(e.target.value) || 0,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, starting_savings: sanitizeNumberInput(e.target.value) })}
                 className="input-field"
               />
             </div>
@@ -558,12 +572,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 min="0"
                 step="100"
                 value={formData.starting_debt}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    starting_debt: parseFloat(e.target.value) || 0,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, starting_debt: sanitizeNumberInput(e.target.value) })}
                 className="input-field"
               />
             </div>
