@@ -177,14 +177,25 @@ def calculate_expense_breakdown(total_expenses: float, city: str, has_car: bool,
     }
 
 
-def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly_expenses: float) -> Dict:
+def initialize_game_state(profile: PlayerProfile, monthly_income: float, 
+                         expense_housing: float, expense_food: float,
+                         expense_transport: float, expense_utilities: float,
+                         expense_insurance: float, expense_subscriptions: float,
+                         expense_other: float, active_subscriptions: list) -> Dict:
     """
     Initialize a new game state based on player profile.
 
     Args:
         profile: PlayerProfile from onboarding
         monthly_income: User-provided monthly income
-        monthly_expenses: User-provided monthly expenses
+        expense_housing: User-provided housing expense
+        expense_food: User-provided food expense
+        expense_transport: User-provided transport expense
+        expense_utilities: User-provided utilities expense
+        expense_insurance: User-provided insurance expense
+        expense_subscriptions: User-provided subscriptions expense
+        expense_other: User-provided other expenses
+        active_subscriptions: List of subscription IDs player has
 
     Returns:
         Dictionary with initial game state values
@@ -193,9 +204,10 @@ def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly
     has_car = profile.aspirations.get("own_car", False)
     has_pet = profile.aspirations.get("own_pet", False)
 
-    # Use user-provided income and expenses instead of calculating them
-    # monthly_income = get_starting_income(profile.education_path, profile.age)
-    # monthly_expenses = get_starting_expenses(profile.city, has_car, has_pet)
+    # Calculate total monthly expenses from individual categories
+    monthly_expenses = (expense_housing + expense_food + expense_transport + 
+                       expense_utilities + expense_insurance + 
+                       expense_subscriptions + expense_other)
 
     # Initial metrics based on risk attitude
     if profile.risk_attitude == RiskAttitude.RISK_AVERSE:
@@ -226,9 +238,8 @@ def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly
         "has_loan": profile.starting_debt > 0
     }
 
-    # Break down monthly expenses into categories
-    expense_breakdown = calculate_expense_breakdown(
-        monthly_expenses, profile.city, has_car, has_pet)
+    # Build active_subscriptions dict with subscription IDs
+    subscriptions_dict = {sub_id: True for sub_id in active_subscriptions}
 
     return {
         "current_step": 0,
@@ -239,13 +250,14 @@ def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly
         "money": profile.starting_savings,
         "monthly_income": monthly_income,
         "monthly_expenses": monthly_expenses,
-        "expense_housing": expense_breakdown["housing"],
-        "expense_food": expense_breakdown["food"],
-        "expense_transport": expense_breakdown["transport"],
-        "expense_utilities": expense_breakdown["utilities"],
-        "expense_subscriptions": expense_breakdown["subscriptions"],
-        "expense_insurance": expense_breakdown["insurance"],
-        "expense_other": expense_breakdown["other"],
+        "expense_housing": expense_housing,
+        "expense_food": expense_food,
+        "expense_transport": expense_transport,
+        "expense_utilities": expense_utilities,
+        "expense_subscriptions": expense_subscriptions,
+        "expense_insurance": expense_insurance,
+        "expense_other": expense_other,
+        "active_subscriptions": subscriptions_dict,
         "investments": 0.0,
         "passive_income": 0.0,
         "debts": profile.starting_debt,

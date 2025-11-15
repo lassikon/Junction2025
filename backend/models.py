@@ -191,6 +191,9 @@ class GameState(SQLModel, table=True):
     expense_insurance: float = Field(
         default=0.0)  # Health, car, home insurance
     expense_other: float = Field(default=0.0)  # Miscellaneous
+    
+    # Track which optional subscriptions the player has (list of IDs: netflix, spotify, gym, etc.)
+    active_subscriptions: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
     investments: float = Field(default=0.0)  # Value of investments
     passive_income: float = Field(default=0.0)  # Income from investments
@@ -454,7 +457,19 @@ class OnboardingRequest(SQLModel):
     education_path: EducationPath
     risk_attitude: RiskAttitude
     monthly_income: float = Field(gt=0)
-    monthly_expenses: float = Field(ge=0)
+    
+    # Individual expense categories (replacing monthly_expenses)
+    expense_housing: float = Field(ge=0, description="Rent or mortgage payment")
+    expense_food: float = Field(ge=0, description="Groceries and food")
+    expense_transport: float = Field(ge=0, description="Public transport or car costs")
+    expense_utilities: float = Field(ge=0, description="Electricity, water, internet, phone")
+    expense_insurance: float = Field(ge=0, description="Health, car, home insurance")
+    expense_subscriptions: float = Field(default=0.0, ge=0, description="Netflix, Spotify, gym, etc.")
+    expense_other: float = Field(default=0.0, ge=0, description="Other miscellaneous expenses")
+    
+    # Track which optional subscriptions to start with
+    active_subscriptions: List[str] = Field(default_factory=list, description="List of subscription IDs: netflix, spotify, gym, dining, hobbies")
+    
     starting_savings: float = Field(default=0.0, ge=0)
     starting_debt: float = Field(default=0.0, ge=0)
     aspirations: dict = {}
@@ -482,6 +497,9 @@ class GameStateResponse(SQLModel):
     expense_subscriptions: float = 0.0
     expense_insurance: float = 0.0
     expense_other: float = 0.0
+    
+    # Active subscriptions
+    active_subscriptions: dict = {}
 
     investments: float
     passive_income: float
@@ -725,3 +743,16 @@ class UpdateOnboardingDefaultsRequest(SQLModel):
     starting_savings: float = Field(default=0.0, ge=0)
     starting_debt: float = Field(default=0.0, ge=0)
     aspirations: dict = {}
+
+
+class UpdateExpensesRequest(SQLModel):
+    """Request model for updating player expenses"""
+    removed_expense_ids: List[str] = []  # ["netflix", "spotify", "gym", "dining", "hobbies"]
+    stat_adjustments: Dict[str, int] = {}  # {"motivation": -8, "energy": -10}
+
+
+class UpdateExpensesResponse(SQLModel):
+    """Response model after updating expenses"""
+    game_state: GameStateResponse
+    expense_savings: float
+    stat_changes: Dict[str, int]

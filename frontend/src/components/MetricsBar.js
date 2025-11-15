@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import ExpensesBreakdown from "./ExpensesBreakdown";
+import { useUpdateExpenses } from "../api/lifesim";
+import { useGameStore } from "../store/gameStore";
 import "../styles/MetricsBar.css";
 
 /**
@@ -7,14 +9,23 @@ import "../styles/MetricsBar.css";
  */
 const MetricsBar = ({ gameState }) => {
   const [showExpensesBreakdown, setShowExpensesBreakdown] = useState(false);
-  const [expenseAdjustment, setExpenseAdjustment] = useState(0);
-  const [statAdjustments, setStatAdjustments] = useState({});
+  const sessionId = useGameStore((state) => state.sessionId);
+  const updateExpensesMutation = useUpdateExpenses();
+
   const {
     current_age = 25,
     years_passed = 0,
     money = 0,
     monthly_income = 0,
     monthly_expenses = 0,
+    expense_housing = 0,
+    expense_food = 0,
+    expense_transport = 0,
+    expense_utilities = 0,
+    expense_subscriptions = 0,
+    expense_insurance = 0,
+    expense_other = 0,
+    active_subscriptions = {},
     investments = 0,
     passive_income = 0,
     debts = 0,
@@ -30,33 +41,47 @@ const MetricsBar = ({ gameState }) => {
   };
 
   const handleRemoveExpense = (expense) => {
-    // Update local expense adjustment (will be sent to backend later)
-    setExpenseAdjustment(prev => prev + expense.amount);
-    
-    // Update stat adjustments (will affect life metrics)
-    const newAdjustments = { ...statAdjustments };
+    // Calculate stat adjustments for this expense
+    const statAdjustments = {};
     if (expense.motivation) {
-      newAdjustments.motivation = (newAdjustments.motivation || 0) - expense.motivation;
+      statAdjustments.motivation = -expense.motivation;
     }
     if (expense.energy) {
-      newAdjustments.energy = (newAdjustments.energy || 0) - expense.energy;
+      statAdjustments.energy = -expense.energy;
     }
     if (expense.social_life) {
-      newAdjustments.social_life = (newAdjustments.social_life || 0) - expense.social_life;
+      statAdjustments.social_life = -expense.social_life;
     }
-    setStatAdjustments(newAdjustments);
 
-    // TODO: Send to backend API when ready
-    console.log("📝 Expense removed (frontend only):", {
+    // Send to backend API
+    updateExpensesMutation.mutate({
+      sessionId,
+      removedExpenses: [expense.id],
+      statAdjustments,
+    });
+
+    console.log("📝 Expense removed, updating backend:", {
       expenseId: expense.id,
       name: expense.name,
       savingsIncrease: expense.amount,
-      statChanges: newAdjustments
+      statChanges: statAdjustments
     });
   };
 
-  // Apply adjustments to display values
-  const adjustedExpenses = Math.max(0, monthly_expenses - expenseAdjustment);
+  // Map backend expense data to component structure
+  const mandatoryExpenses = [
+    { id: "rent", name: "Rent/Mortgage", amount: expense_housing, icon: "🏠" },
+    { id: "food", name: "Food & Groceries", amount: expense_food, icon: "🍕" },
+    { id: "electricity", name: "Electricity & Water", amount: expense_utilities, icon: "💡" },
+    { id: "transportation", name: "Transportation", amount: expense_transport, icon: "🚗" },
+    { id: "insurance", name: "Insurance", amount: expense_insurance, icon: "🛡️" },
+  ];
+
+  // Optional expenses come from subscriptions + a portion of "other"
+  // We'll use the hardcoded structure from ExpensesBreakdown for now
+  const optionalExpensesData = {
+    totalAmount: expense_subscriptions + expense_other * 0.5, // Rough estimate
+  };
 
   return (
     <div className="metrics-bar">
@@ -97,10 +122,7 @@ const MetricsBar = ({ gameState }) => {
             </span>
           </span>
           <span className="metric-value">
-            {formatCurrency(adjustedExpenses)}
-            {expenseAdjustment > 0 && (
-              <span className="adjustment-badge">-{formatCurrency(expenseAdjustment)}</span>
-            )}
+            {formatCurrency(monthly_expenses)}
           </span>
         </div>
         
@@ -111,7 +133,9 @@ const MetricsBar = ({ gameState }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <ExpensesBreakdown
-              totalExpenses={adjustedExpenses}
+              mandatoryExpenses={mandatoryExpenses}
+              totalExpenses={monthly_expenses}
+              activeSubscriptions={active_subscriptions}
               onRemoveExpense={handleRemoveExpense}
             />
           </div>

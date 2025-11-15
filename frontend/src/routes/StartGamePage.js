@@ -46,6 +46,8 @@ function StartGamePage() {
       setError('');
 
       // Use the saved defaults to start a new game
+      // Break down monthly_expenses into individual categories
+      const totalExpenses = profile.default_monthly_expenses || 0;
       const onboardingData = {
         player_name: displayName || profile.username,
         age: profile.default_age,
@@ -53,7 +55,15 @@ function StartGamePage() {
         education_path: profile.default_education_path,
         risk_attitude: profile.default_risk_attitude,
         monthly_income: profile.default_monthly_income,
-        monthly_expenses: profile.default_monthly_expenses,
+        // Individual expense categories (breaking down total expenses)
+        expense_housing: Math.round(totalExpenses * 0.4),
+        expense_food: Math.round(totalExpenses * 0.25),
+        expense_transport: Math.round(totalExpenses * 0.08),
+        expense_utilities: Math.round(totalExpenses * 0.12),
+        expense_insurance: Math.round(totalExpenses * 0.05),
+        expense_subscriptions: 0,
+        expense_other: 0,
+        active_subscriptions: [],
         starting_savings: profile.default_starting_savings || 0,
         starting_debt: profile.default_starting_debt || 0,
         aspirations: profile.default_aspirations || {},

@@ -68,7 +68,15 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
     education_path: defaultData?.education_path || "",
     risk_attitude: defaultData?.risk_attitude || "",
     monthly_income: defaultData?.monthly_income || 2000,
-    monthly_expenses: defaultData?.monthly_expenses || 1000,
+    // Individual expense categories
+    expense_housing: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.4) : 450,
+    expense_food: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.25) : 300,
+    expense_transport: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.08) : 50,
+    expense_utilities: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.12) : 100,
+    expense_insurance: defaultData?.monthly_expenses ? Math.round(defaultData.monthly_expenses * 0.05) : 50,
+    expense_subscriptions: 0,
+    expense_other: 0, // Not shown in form, automatically 0
+    active_subscriptions: [],
     starting_savings: defaultData?.starting_savings || 0,
     starting_debt: defaultData?.starting_debt || 0,
     aspirations: defaultData?.aspirations || {},
@@ -77,6 +85,7 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
   // Update form data when defaultData is loaded
   React.useEffect(() => {
     if (defaultData) {
+      const totalExpenses = defaultData.monthly_expenses || 0;
       setFormData(prev => ({
         ...prev,
         age: defaultData.age || prev.age,
@@ -84,7 +93,12 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
         education_path: defaultData.education_path || prev.education_path,
         risk_attitude: defaultData.risk_attitude || prev.risk_attitude,
         monthly_income: defaultData.monthly_income || prev.monthly_income,
-        monthly_expenses: defaultData.monthly_expenses || prev.monthly_expenses,
+        expense_housing: totalExpenses ? Math.round(totalExpenses * 0.4) : prev.expense_housing,
+        expense_food: totalExpenses ? Math.round(totalExpenses * 0.25) : prev.expense_food,
+        expense_transport: totalExpenses ? Math.round(totalExpenses * 0.08) : prev.expense_transport,
+        expense_utilities: totalExpenses ? Math.round(totalExpenses * 0.12) : prev.expense_utilities,
+        expense_insurance: totalExpenses ? Math.round(totalExpenses * 0.05) : prev.expense_insurance,
+        expense_other: 0, // Always 0, not shown in form
         starting_savings: defaultData.starting_savings || prev.starting_savings,
         starting_debt: defaultData.starting_debt || prev.starting_debt,
         aspirations: defaultData.aspirations || prev.aspirations,
@@ -153,7 +167,12 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
       case 5:
         return formData.risk_attitude !== "";
       case 6:
-        return formData.monthly_income > 0 && formData.monthly_expenses >= 0;
+        return formData.monthly_income > 0 && 
+               formData.expense_housing >= 0 && 
+               formData.expense_food >= 0 &&
+               formData.expense_transport >= 0 &&
+               formData.expense_utilities >= 0 &&
+               formData.expense_insurance >= 0;
       case 7:
         return true; // Optional step
       default:
@@ -301,11 +320,48 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
         );
 
       case 6:
+        const totalExpenses = (
+          (formData.expense_housing || 0) +
+          (formData.expense_food || 0) +
+          (formData.expense_transport || 0) +
+          (formData.expense_utilities || 0) +
+          (formData.expense_insurance || 0) +
+          (formData.expense_subscriptions || 0) +
+          (formData.expense_other || 0)
+        );
+
+        const optionalSubscriptionOptions = [
+          { id: "netflix", name: "Netflix", amount: 15, icon: "🎬" },
+          { id: "spotify", name: "Spotify", amount: 10, icon: "🎵" },
+          { id: "gym", name: "Gym", amount: 40, icon: "💪" },
+          { id: "dining", name: "Dining Out", amount: 200, icon: "🍽️" },
+          { id: "hobbies", name: "Hobbies", amount: 100, icon: "🎮" },
+        ];
+
+        const handleSubscriptionToggle = (subId, amount) => {
+          const isActive = formData.active_subscriptions.includes(subId);
+          if (isActive) {
+            // Remove subscription
+            setFormData({
+              ...formData,
+              active_subscriptions: formData.active_subscriptions.filter(id => id !== subId),
+              expense_subscriptions: Math.max(0, formData.expense_subscriptions - amount),
+            });
+          } else {
+            // Add subscription
+            setFormData({
+              ...formData,
+              active_subscriptions: [...formData.active_subscriptions, subId],
+              expense_subscriptions: formData.expense_subscriptions + amount,
+            });
+          }
+        };
+
         return (
           <div className="step-content">
             <h2>💼 Monthly Finances</h2>
             <p className="step-description">
-              Tell us about your monthly income and expenses.
+              Tell us about your monthly income and expenses. Be realistic!
             </p>
 
             <div className="form-group">
@@ -324,30 +380,146 @@ const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
                 }
                 className="input-field"
               />
-              <small className="input-hint">
-                Your total monthly income after taxes
-              </small>
+              <small className="input-hint">Your net monthly income after taxes</small>
+            </div>
+
+            <div style={{ marginTop: "20px", marginBottom: "10px" }}>
+              <strong>💸 Monthly Expenses</strong>
             </div>
 
             <div className="form-group">
-              <label htmlFor="monthly_expenses">Monthly Expenses (€)</label>
+              <label htmlFor="expense_housing">🏠 Rent/Mortgage (€)</label>
               <input
-                id="monthly_expenses"
+                id="expense_housing"
                 type="number"
                 min="0"
-                step="100"
-                value={formData.monthly_expenses}
+                step="50"
+                value={formData.expense_housing}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    monthly_expenses: parseFloat(e.target.value) || 0,
+                    expense_housing: parseFloat(e.target.value) || 0,
                   })
                 }
                 className="input-field"
               />
-              <small className="input-hint">
-                Your total monthly expenses (rent, food, utilities, etc.)
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="expense_food">🍕 Food & Groceries (€)</label>
+              <input
+                id="expense_food"
+                type="number"
+                min="0"
+                step="50"
+                value={formData.expense_food}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    expense_food: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="input-field"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="expense_utilities">💡 Utilities (electricity, water, internet) (€)</label>
+              <input
+                id="expense_utilities"
+                type="number"
+                min="0"
+                step="20"
+                value={formData.expense_utilities}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    expense_utilities: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="input-field"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="expense_transport">🚗 Transportation (€)</label>
+              <input
+                id="expense_transport"
+                type="number"
+                min="0"
+                step="20"
+                value={formData.expense_transport}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    expense_transport: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="input-field"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="expense_insurance">🛡️ Insurance (€)</label>
+              <input
+                id="expense_insurance"
+                type="number"
+                min="0"
+                step="10"
+                value={formData.expense_insurance}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    expense_insurance: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="input-field"
+              />
+            </div>
+
+            <div style={{ marginTop: "20px", marginBottom: "10px" }}>
+              <strong>✨ Optional Subscriptions</strong>
+              <small style={{ display: "block", color: "#666", marginTop: "5px" }}>
+                Select any subscriptions you currently have
               </small>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "10px" }}>
+              {optionalSubscriptionOptions.map((sub) => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => handleSubscriptionToggle(sub.id, sub.amount)}
+                  style={{
+                    padding: "12px",
+                    border: formData.active_subscriptions.includes(sub.id)
+                      ? "2px solid #667eea"
+                      : "2px solid #e0e0e0",
+                    borderRadius: "8px",
+                    background: formData.active_subscriptions.includes(sub.id)
+                      ? "#f0f4ff"
+                      : "white",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    fontSize: "0.9rem",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <div style={{ fontSize: "1.5rem", marginBottom: "5px" }}>{sub.icon}</div>
+                  <div>{sub.name}</div>
+                  <div style={{ fontSize: "0.85rem", color: "#666" }}>€{sub.amount}/mo</div>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ 
+              marginTop: "20px", 
+              padding: "15px", 
+              background: "#f5f5f5", 
+              borderRadius: "8px",
+              textAlign: "center"
+            }}>
+              <strong>Total Monthly Expenses: €{totalExpenses}</strong>
             </div>
           </div>
         );
