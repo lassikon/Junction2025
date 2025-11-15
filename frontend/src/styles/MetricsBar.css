@@ -9,6 +9,9 @@
   margin: 20px;
   flex-wrap: wrap;
   gap: 15px;
+  position: relative;
+  z-index: 10;
+  overflow: visible;
 }
 
 .metric-item {
@@ -19,11 +22,43 @@
   background: #f8f9fa;
   border-radius: 10px;
   transition: all 0.3s ease;
+  position: relative;
+  overflow: visible;
 }
 
 .metric-item:hover {
   background: #e9ecef;
   transform: translateY(-2px);
+}
+
+/* Expenses Item with Tooltip */
+.metric-item.expenses-item {
+  cursor: pointer;
+  user-select: none;
+}
+
+.metric-item.expenses-item:hover {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+}
+
+.metric-item.expenses-item.active {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Expand Arrow */
+.expand-arrow {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.65rem;
+  transition: transform 0.3s ease;
+  color: #667eea;
+}
+
+.expand-arrow.expanded {
+  transform: rotate(180deg);
 }
 
 .metric-item.highlight {
@@ -66,6 +101,58 @@
   color: #333;
 }
 
+/* Expenses Tooltip */
+.expenses-tooltip {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1005;
+  pointer-events: auto;
+}
+
+/* Arrow for tooltip */
+.expenses-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid white;
+  filter: drop-shadow(0 -2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Adjustment Badge */
+.adjustment-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  font-weight: 700;
+  animation: bounceIn 0.5s ease;
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 768px) {
   .metrics-bar {
     flex-direction: column;
@@ -74,6 +161,17 @@
   
   .metric-item {
     justify-content: space-between;
+  }
+
+  .expenses-tooltip {
+    left: 0;
+    right: 0;
+    transform: none;
+    margin: 0 10px;
+  }
+
+  .expenses-tooltip::before {
+    left: 30%;
   }
 }
 
