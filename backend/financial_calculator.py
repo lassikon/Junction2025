@@ -18,8 +18,39 @@ async def parse_llm_outcome(llm_response: Dict) -> Dict[str, float]:
     Returns:
         Dictionary of calculated effects to apply to GameState
     """
+    print(f"[FINANCIAL_CALC] DEBUG - Parsing LLM response:")
+    print(f"  Keys in response: {llm_response.keys()}")
+    
+    # Check if LLM returned old format with 'effects' instead of 'outcome'
+    if 'effects' in llm_response and 'outcome' not in llm_response:
+        print(f"  ⚠️  LLM returned OLD format with 'effects' - prompt not updated!")
+        print(f"  Using legacy effects directly without MCP calculation")
+        # Return the effects as-is (old behavior)
+        old_effects = llm_response['effects']
+        return {
+            "money_change": old_effects.get("money_change", 0),
+            "investment_change": old_effects.get("investment_change", 0),
+            "passive_income_change": old_effects.get("passive_income_change", 0),
+            "debt_change": old_effects.get("debt_change", 0),
+            "income_change": old_effects.get("income_change", 0),
+            "expense_housing_change": old_effects.get("expense_housing_change", 0),
+            "expense_food_change": old_effects.get("expense_food_change", 0),
+            "expense_transport_change": old_effects.get("expense_transport_change", 0),
+            "expense_utilities_change": old_effects.get("expense_utilities_change", 0),
+            "expense_subscriptions_change": old_effects.get("expense_subscriptions_change", 0),
+            "expense_insurance_change": old_effects.get("expense_insurance_change", 0),
+            "expense_other_change": old_effects.get("expense_other_change", 0),
+            "energy_change": old_effects.get("energy_change", 0),
+            "motivation_change": old_effects.get("motivation_change", 0),
+            "social_change": old_effects.get("social_change", 0),
+            "knowledge_change": old_effects.get("knowledge_change", 0),
+        }
+    
     outcome = llm_response.get("outcome", {})
     action_type = outcome.get("action_type", "")
+    
+    print(f"  Outcome found: {bool(outcome)}")
+    print(f"  Action type: {action_type}")
     
     # Initialize effects
     effects = {

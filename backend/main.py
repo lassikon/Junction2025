@@ -1396,6 +1396,12 @@ async def process_decision(
         
         # NEW: Use MCP financial calculator to determine actual effects
         print(f"📜 Consequence: {consequence[:100]}...")
+        print(f"🔍 DEBUG - LLM Response structure:")
+        print(f"  Keys: {consequence_result.keys()}")
+        if 'outcome' in consequence_result:
+            print(f"  Outcome: {consequence_result['outcome']}")
+        else:
+            print(f"  ⚠️  No 'outcome' key - LLM returned old format!")
         print(f"🧮 Calculating effects via MCP financial server...")
         
         game_state_snapshot = {
