@@ -8,6 +8,7 @@ import ChoiceList from "../components/ChoiceList";
 import ConsequenceModal from "../components/ConsequenceModal";
 import TransactionHistory from "../components/TransactionHistory";
 import TransactionLog from "../components/TransactionLog";
+import FloatingChatbot from "../components/FloatingChatbot";
 import "../styles/GamePage.css";
 
 /**
@@ -34,6 +35,8 @@ const GamePage = () => {
     currentNarrative,
     currentOptions,
     setNarrativeAndOptions,
+    showChatbot,
+    toggleChatbot,
   } = useGameStore();
 
   const { data: playerState, isLoading: isLoadingPlayerState } =
@@ -195,6 +198,13 @@ const GamePage = () => {
           onClose={() => setShowTransactionHistory(false)}
         />
       )}
+
+      {/* Floating Financial Advisor Chatbot */}
+      <FloatingChatbot
+        sessionId={sessionId}
+        isOpen={showChatbot}
+        onToggle={toggleChatbot}
+      />
     </div>
   );
 };
