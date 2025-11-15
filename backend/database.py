@@ -27,7 +27,7 @@ else:
 # Create sync engine for table creation
 sync_engine = create_engine(
     DATABASE_URL,
-    echo=True,  # Set to False in production
+    echo=False,  # Set to False in production
     connect_args={
         "check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 )
@@ -35,7 +35,7 @@ sync_engine = create_engine(
 # Create async engine for async operations
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    echo=True,  # Set to False in production
+    echo=False,  # Set to False in production
     future=True
 )
 

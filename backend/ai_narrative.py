@@ -90,10 +90,10 @@ async def retrieve_rag_context(
         print(
             f"📊 Retrieved {len(concepts) if concepts else 0} financial concepts")
 
-        if concepts:
-            for i, c in enumerate(concepts, 1):
-                print(
-                    f"  {i}. {c['title']} - Score: {c['score']:.3f} - Source: {c.get('source', 'unknown')}")
+        # if concepts:
+        #     for i, c in enumerate(concepts, 1):
+        #         print(
+        #             f"  {i}. {c['title']} - Score: {c['score']:.3f} - Source: {c.get('source', 'unknown')}")
 
         # Smart filtering: always include at least min_concepts, then apply threshold
         filtered_concepts = []
