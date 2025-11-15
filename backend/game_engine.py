@@ -72,6 +72,15 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> None:
     state.monthly_expenses += effect.expense_change
     state.passive_income += effect.passive_income_change
 
+    # Convert negative cash to debt
+    if state.money < 0:
+        # Transfer negative balance to debt
+        deficit = abs(state.money)
+        state.debts += deficit
+        state.money = 0
+        print(
+            f"💳 Converted €{deficit:.0f} negative cash to debt. Total debt now: €{state.debts:.0f}")
+
     # Update life metrics with bounds checking
     state.energy = update_metric(state.energy, effect.energy_change)
     state.motivation = update_metric(
@@ -97,7 +106,7 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> None:
 
     # Increment step and age
     state.current_step += 1
-    
+
     # Time progression: each step = 6 months
     time_per_step = 0.5  # years
     state.years_passed += time_per_step
@@ -650,4 +659,37 @@ def setup_option_effect(option: Dict) -> DecisionEffect:
     effect = option["effect"]
     if "setup" in option:
         option["setup"](effect)
+    return effect
+
+
+def setup_dynamic_option_effect(option: Dict) -> DecisionEffect:
+    """
+    Create a DecisionEffect from a dynamically generated option.
+
+    Args:
+        option: Dictionary with effect values from AI generation
+
+    Returns:
+        DecisionEffect object
+    """
+    effect = DecisionEffect()
+
+    # Financial effects
+    effect.money_change = option.get("money_change", 0)
+    effect.investment_change = option.get("investment_change", 0)
+    effect.debt_change = option.get("debt_change", 0)
+    effect.income_change = option.get("income_change", 0)
+    effect.expense_change = option.get("expense_change", 0)
+    effect.passive_income_change = option.get("passive_income_change", 0)
+
+    # Life metric effects
+    effect.energy_change = int(option.get("energy_change", 0))
+    effect.motivation_change = int(option.get("motivation_change", 0))
+    effect.social_change = int(option.get("social_change", 0))
+    effect.knowledge_change = int(option.get("knowledge_change", 0))
+
+    # Asset and risk factor updates (if provided)
+    effect.asset_updates = option.get("asset_updates", {})
+    effect.risk_factor_updates = option.get("risk_factor_updates", {})
+
     return effect

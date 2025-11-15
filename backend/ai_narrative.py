@@ -34,6 +34,7 @@ CONSEQUENCE_PROMPTS = load_prompt_template("consequence_prompt.json")
 LEARNING_PROMPTS = load_prompt_template("learning_moment_prompt.json")
 FALLBACK_NARRATIVES = load_prompt_template("fallback_narratives.json")
 OPTIONS_PROMPTS = load_prompt_template("options_prompt.json")
+DYNAMIC_OPTIONS_PROMPTS = load_prompt_template("dynamic_options_prompt.json")
 
 
 def get_ai_client():
@@ -172,10 +173,10 @@ def generate_learning_moment(
     try:
         from rag_service import get_rag_service
         rag = get_rag_service()
-        
+
         # Build query from context
         query = f"{chosen_option}. Age {state.current_age}, FI score {state.fi_score:.1f}%, financial knowledge {state.financial_knowledge}/100"
-        
+
         # Retrieve relevant financial concepts
         difficulty = "beginner" if state.financial_knowledge < 50 else "intermediate"
         concepts = rag.retrieve_financial_concepts(
@@ -183,17 +184,17 @@ def generate_learning_moment(
             difficulty_filter=difficulty,
             top_k=2
         )
-        
+
         # Only generate if we found relevant concepts (score > 0.7)
         if not concepts or concepts[0]['score'] < 0.7:
             return None  # No relevant tip available
-        
+
         if client is None:
             client = get_ai_client()
-        
+
         if client is None:
             return None
-        
+
         # Build enhanced prompt with retrieved context
         prompt = f"""You are a friendly financial education coach. Provide a brief, practical tip.
 
@@ -218,7 +219,8 @@ Be encouraging and practical. Make it actionable."""
         print("\n" + "="*80)
         print("🤖 GEMINI API CALL - Learning Moment (RAG-Enhanced)")
         print("="*80)
-        print(f"📚 Retrieved concept: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
+        print(
+            f"📚 Retrieved concept: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
         print("PROMPT:")
         print(prompt)
         print("\n" + "-"*80)
@@ -232,22 +234,22 @@ Be encouraging and practical. Make it actionable."""
         print("RESPONSE:")
         print(tip)
         print("="*80 + "\n")
-        
+
         return tip
-        
+
     except Exception as e:
         print(f"⚠️ RAG learning moment failed: {e}")
         # Fallback to original 30% random logic
         import random
         if random.random() > 0.7:
             return None
-        
+
         if client is None:
             client = get_ai_client()
-        
+
         if client is None:
             return None
-        
+
         try:
             # Original prompt without RAG
             prompt = f"""{LEARNING_PROMPTS['system_context']} {LEARNING_PROMPTS['template'].format(
@@ -266,9 +268,9 @@ Be encouraging and practical. Make it actionable."""
                 model="gemini-2.0-flash-exp",
                 contents=prompt
             )
-            
+
             return response.text.strip()
-            
+
         except Exception as e2:
             print(f"Learning moment generation failed: {e2}")
             return None
@@ -387,11 +389,15 @@ def build_narrative_prompt(
         assets_list = []
         for key, value in state.assets.items():
             if isinstance(value, dict):
-                asset_details = ", ".join([f"{k}: {v}" for k, v in value.items()])
-                assets_list.append(f"  • {key.replace('_', ' ').title()}: {asset_details}")
+                asset_details = ", ".join(
+                    [f"{k}: {v}" for k, v in value.items()])
+                assets_list.append(
+                    f"  • {key.replace('_', ' ').title()}: {asset_details}")
             else:
-                assets_list.append(f"  • {key.replace('_', ' ').title()}: {value}")
-        assets_text = "Assets Owned:\n" + "\n".join(assets_list) if assets_list else "No major assets yet"
+                assets_list.append(
+                    f"  • {key.replace('_', ' ').title()}: {value}")
+        assets_text = "Assets Owned:\n" + \
+            "\n".join(assets_list) if assets_list else "No major assets yet"
     else:
         assets_text = "Assets Owned: None yet"
 
@@ -495,3 +501,181 @@ def get_fallback_narrative(
         money=state.money,
         debts=state.debts
     )
+
+
+def generate_dynamic_options(
+    event_type: str,
+    narrative: str,
+    state: GameState,
+    profile: PlayerProfile,
+    client: Optional[genai.Client] = None
+) -> List[Dict]:
+    """
+    Generate decision options dynamically using AI with complete effects.
+
+    Args:
+        event_type: Type of event
+        narrative: The narrative context for this decision
+        state: Current game state
+        profile: Player profile
+        client: Gemini client (optional)
+
+    Returns:
+        List of option dictionaries with text and effects
+    """
+    if client is None:
+        client = get_ai_client()
+
+    # If no AI available, return a generic fallback
+    if client is None:
+        return generate_fallback_options(event_type, state)
+
+    try:
+        # Build prompt for dynamic option generation
+        assets_str = ", ".join(
+            [f"{k}: {v}" for k, v in state.assets.items()]) if state.assets else "None"
+
+        event_description = DYNAMIC_OPTIONS_PROMPTS.get('variation_guidance', {}).get(
+            event_type,
+            "A decision point in the player's financial journey."
+        )
+
+        template_filled = DYNAMIC_OPTIONS_PROMPTS['template'].format(
+            player_name=profile.player_name,
+            current_age=state.current_age,
+            current_step=state.current_step,
+            city=profile.city,
+            education=profile.education_path.value,
+            risk_attitude=profile.risk_attitude.value,
+            money=state.money,
+            monthly_income=state.monthly_income,
+            monthly_expenses=state.monthly_expenses,
+            investments=state.investments,
+            passive_income=state.passive_income,
+            debts=state.debts,
+            fi_score=state.fi_score,
+            energy=state.energy,
+            motivation=state.motivation,
+            social_life=state.social_life,
+            financial_knowledge=state.financial_knowledge,
+            assets=assets_str,
+            event_type=event_type,
+            event_description=event_description,
+            narrative=narrative
+        )
+
+        prompt = f"""{DYNAMIC_OPTIONS_PROMPTS['system_context']}
+
+{DYNAMIC_OPTIONS_PROMPTS['instruction']}
+
+{template_filled}
+
+{DYNAMIC_OPTIONS_PROMPTS['format_instruction']}"""
+
+        print("\n" + "="*80)
+        print(f"🤖 GEMINI API CALL - Dynamic Options Generation ({event_type})")
+        print("="*80)
+        print("PROMPT:")
+        print(prompt)
+        print("\n" + "-"*80)
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp",
+            contents=prompt
+        )
+
+        print("RESPONSE:")
+        print(response.text.strip())
+        print("="*80 + "\n")
+
+        # Parse JSON response
+        response_text = response.text.strip()
+
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text.split(
+                "```json")[1].split("```")[0].strip()
+        elif response_text.startswith("```"):
+            response_text = response_text.split(
+                "```")[1].split("```")[0].strip()
+
+        options = json.loads(response_text)
+
+        # Validate that we got a list of options
+        if not isinstance(options, list) or len(options) < 2:
+            print(f"Warning: Invalid options format, using fallback")
+            return generate_fallback_options(event_type, state)
+
+        # Validate each option has required fields
+        required_fields = ["text", "money_change", "explanation"]
+        for opt in options:
+            if not all(field in opt for field in required_fields):
+                print(f"Warning: Option missing required fields, using fallback")
+                return generate_fallback_options(event_type, state)
+
+        print(f"✅ Successfully generated {len(options)} dynamic options")
+        return options
+
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error in dynamic options: {e}")
+        print(f"Response was: {response.text[:500]}...")
+        return generate_fallback_options(event_type, state)
+    except Exception as e:
+        print(f"Dynamic option generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return generate_fallback_options(event_type, state)
+
+
+def generate_fallback_options(event_type: str, state: GameState) -> List[Dict]:
+    """
+    Generate simple fallback options when AI is not available.
+    These are generic but functional.
+    """
+    paycheck = state.monthly_income
+
+    # Generic options that work for most scenarios
+    return [
+        {
+            "text": f"Save {int(paycheck * 0.3)} euros and invest in learning",
+            "money_change": paycheck * 0.3,
+            "investment_change": 0,
+            "debt_change": 0,
+            "income_change": 0,
+            "expense_change": 0,
+            "passive_income_change": 0,
+            "energy_change": 0,
+            "motivation_change": 5,
+            "social_change": 0,
+            "knowledge_change": 10,
+            "explanation": f"Save €{paycheck * 0.3:.0f} and focus on building knowledge for future opportunities"
+        },
+        {
+            "text": "Take a balanced approach to finances and lifestyle",
+            "money_change": paycheck * 0.2,
+            "investment_change": 0,
+            "debt_change": 0,
+            "income_change": 0,
+            "expense_change": 0,
+            "passive_income_change": 0,
+            "energy_change": 5,
+            "motivation_change": 5,
+            "social_change": 5,
+            "knowledge_change": 5,
+            "explanation": f"Save €{paycheck * 0.2:.0f}, maintain good life balance across all areas"
+        },
+        {
+            "text": "Focus on immediate needs and social connections",
+            "money_change": paycheck * 0.1,
+            "investment_change": 0,
+            "debt_change": 0,
+            "income_change": 0,
+            "expense_change": 0,
+            "passive_income_change": 0,
+            "energy_change": 5,
+            "motivation_change": 5,
+            "social_change": 15,
+            "knowledge_change": 0,
+            "explanation": f"Save only €{paycheck * 0.1:.0f}, prioritize relationships and well-being now"
+        }
+    ]
