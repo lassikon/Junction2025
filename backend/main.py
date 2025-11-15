@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import os
+import time
+from contextlib import contextmanager
 from dotenv import load_dotenv
 from google import genai
 from contextlib import asynccontextmanager
@@ -10,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from database import init_db, close_db, get_session
 from models import (
-    PlayerProfile, GameState, DecisionHistory, LeaderboardEntry,
+    PlayerProfile, GameState, DecisionHistory, LeaderboardEntry, TransactionLog,
     OnboardingRequest, GameStateResponse, OnboardingResponse, GameStatus,
-    DecisionRequest, DecisionResponse, TransactionLog, TransactionSummary,
-    MonthlyCashFlowSummary, LifeMetricsChanges
+    DecisionRequest, DecisionResponse, ChatRequest, ChatResponse,
+    ChatHistoryResponse, ChatMessageResponse, ChatRole, ChatSession, ChatMessage,
+    LifeMetricsChanges, TransactionSummary, MonthlyCashFlowSummary
 )
 from utils import initialize_game_state, generate_session_id, calculate_fi_score
 from game_engine import (
@@ -26,8 +29,29 @@ from ai_narrative import (
 )
 from rag_service import RAGService, get_rag_service
 import rag_service as rag_module
+from chat_utils import (
+    get_or_create_chat_session, save_chat_message, should_create_summary,
+    create_chat_summary, store_chat_summary, get_recent_chat_messages,
+    get_latest_chat_summary
+)
+from chat_ai import generate_chat_response
 
 load_dotenv()
+
+
+# =====================================================
+# Performance Monitoring - Easy to remove
+# =====================================================
+@contextmanager
+def timer(operation_name: str):
+    """Context manager to time operations. Remove this block to disable timing."""
+    start = time.time()
+    try:
+        yield
+    finally:
+        duration = time.time() - start
+        print(f"⏱️  {operation_name}: {duration:.3f}s")
+# =====================================================
 
 
 @asynccontextmanager
@@ -117,16 +141,6 @@ def on_startup():
     pass
 
 
-class ChatMessage(BaseModel):
-    message: str
-    model: Optional[str] = "gemini-2.0-flash-exp"
-
-
-class ChatResponse(BaseModel):
-    response: str
-    model: str
-
-
 @app.get("/", tags=["System"])
 async def root():
     """
@@ -143,50 +157,141 @@ async def health():
     return {"status": "healthy"}
 
 
-@app.post("/api/chat", response_model=ChatResponse, tags=["AI"])
-async def chat(chat_message: ChatMessage, session: AsyncSession = Depends(get_session)):
+@app.post("/api/chat", response_model=ChatResponse, tags=["Chat"])
+async def chat(request: ChatRequest, db_session: AsyncSession = Depends(get_session)):
     """
-    Chat with AI using Gemini models
+    Send a chat message and receive game-aware AI response
 
-    Send a message to the AI and receive a response powered by Google's Gemini.
+    This endpoint provides an AI assistant that is aware of:
+    - Your current game state (age, finances, FI score)
+    - Your player profile (education, risk attitude, aspirations)
+    - Recent chat history (with automatic summarization)
+    - Recent game decisions
+
+    **Process:**
+    1. Retrieves or creates chat session for your game
+    2. Saves your message to chat history
+    3. Generates context-aware AI response
+    4. Automatically creates summary every 10 messages
+    5. Returns AI response
+
+    **Parameters:**
+    - **session_id**: Your game session ID
+    - **message**: Your question or message
+    - **model**: AI model to use (default: gemini-2.0-flash-exp)
+
+    **Returns:** AI response with session and message tracking info
     """
     try:
-        if not GEMINI_API_KEY or not client:
-            raise HTTPException(
-                status_code=500, detail="GEMINI_API_KEY not configured")
+        # Get player profile and game state
+        result = await db_session.execute(
+            select(PlayerProfile).where(
+                PlayerProfile.session_id == request.session_id)
+        )
+        profile = result.scalar_one_or_none()
 
-        # Map of valid Gemini models
-        valid_models = ["gemini-2.0-flash-exp",
-                        "gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"]
+        if not profile:
+            raise HTTPException(status_code=404, detail="Session not found")
 
-        # Use default model if provided model is not a Gemini model
-        model_to_use = chat_message.model if chat_message.model in valid_models else "gemini-2.0-flash-exp"
+        result = await db_session.execute(
+            select(GameState).where(GameState.profile_id == profile.id)
+        )
+        game_state = result.scalar_one_or_none()
 
-        print("Requested model:", chat_message.model)
-        print("Using model:", model_to_use)
-        print("Message:", chat_message.message)
+        if not game_state:
+            raise HTTPException(status_code=404, detail="Game state not found")
 
-        # Generate response using the new genai.Client API
-        response = client.models.generate_content(
-            model=model_to_use,
-            contents=chat_message.message
+        # Get or create chat session
+        chat_session = await get_or_create_chat_session(
+            session_id=request.session_id,
+            profile_id=profile.id,
+            db_session=db_session
         )
 
-        print("Response object:", response)
-        print("Response text:", response.text)
+        # Save user message
+        user_message = await save_chat_message(
+            chat_session=chat_session,
+            role=ChatRole.USER,
+            content=request.message,
+            db_session=db_session,
+            message_metadata={"model": request.model}
+        )
+
+        # Generate AI response
+        ai_response_text = await generate_chat_response(
+            user_message=request.message,
+            chat_session=chat_session,
+            game_state=game_state,
+            profile=profile,
+            db_session=db_session,
+            client=client
+        )
+
+        # Save AI response
+        ai_message = await save_chat_message(
+            chat_session=chat_session,
+            role=ChatRole.ASSISTANT,
+            content=ai_response_text,
+            db_session=db_session,
+            message_metadata={"model": request.model}
+        )
+
+        # Check if we should create a summary
+        if await should_create_summary(chat_session):
+            print(
+                f"📊 Creating summary for chat session (message count: {chat_session.message_count})")
+            try:
+                # Get messages for summary (last 10)
+                summary_start = max(1, chat_session.message_count - 9)
+                summary_end = chat_session.message_count
+
+                messages_for_summary = await get_recent_chat_messages(
+                    chat_session_id=chat_session.id,
+                    db_session=db_session,
+                    limit=10
+                )
+
+                summary_text = await create_chat_summary(
+                    messages=messages_for_summary,
+                    game_state=game_state,
+                    profile=profile,
+                    client=client
+                )
+
+                await store_chat_summary(
+                    chat_session=chat_session,
+                    summary_text=summary_text,
+                    message_range_start=summary_start,
+                    message_range_end=summary_end,
+                    db_session=db_session
+                )
+
+                print(f"✅ Summary created: {summary_text[:100]}...")
+
+            except Exception as e:
+                print(f"⚠️ Failed to create summary: {e}")
+
+        # Commit all changes
+        await db_session.commit()
+        await db_session.refresh(ai_message)
+
         return ChatResponse(
-            response=response.text,
-            model=chat_message.model
+            response=ai_response_text,
+            session_id=request.session_id,
+            chat_session_id=chat_session.chat_session_id,
+            message_id=ai_message.id,
+            model=request.model
         )
+
     except HTTPException:
         raise
     except Exception as e:
-        print("Error details:", str(e))
-        print("Error type:", type(e).__name__)
+        await db_session.rollback()
+        print(f"❌ Chat error: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(
-            status_code=500, detail=f"Error generating response: {str(e)}")
+            status_code=500, detail=f"Error processing chat: {str(e)}")
 
 
 @app.get("/api/models", tags=["AI"])
@@ -205,6 +310,133 @@ async def list_models():
             {"id": "gemini-pro", "name": "Gemini Pro"},
         ]
     }
+
+
+@app.get("/api/chat/history/{session_id}", response_model=ChatHistoryResponse, tags=["Chat"])
+async def get_chat_history(
+    session_id: str,
+    page: int = 1,
+    page_size: int = 20,
+    db_session: AsyncSession = Depends(get_session)
+):
+    """
+    Get chat history for a game session with pagination
+
+    Retrieves chat messages with automatic pagination and summarization.
+
+    **Features:**
+    - Paginated message retrieval (default 20 messages per page)
+    - Automatic summary when history exceeds 10 messages
+    - Messages ordered chronologically (oldest to newest)
+
+    **Parameters:**
+    - **session_id**: Game session ID
+    - **page**: Page number (default: 1)
+    - **page_size**: Messages per page (default: 20, max: 100)
+
+    **Returns:** Chat messages, summary (if available), and pagination info
+    """
+    try:
+        # Validate pagination params
+        if page < 1:
+            raise HTTPException(status_code=400, detail="Page must be >= 1")
+        if page_size < 1 or page_size > 100:
+            raise HTTPException(
+                status_code=400, detail="Page size must be between 1 and 100")
+
+        # Get player profile
+        result = await db_session.execute(
+            select(PlayerProfile).where(PlayerProfile.session_id == session_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get chat session
+        result = await db_session.execute(
+            select(ChatSession).where(ChatSession.profile_id == profile.id)
+        )
+        chat_session = result.scalar_one_or_none()
+
+        if not chat_session:
+            # No chat history yet
+            return ChatHistoryResponse(
+                session_id=session_id,
+                chat_session_id="",
+                messages=[],
+                summary=None,
+                total_count=0,
+                current_page=page,
+                page_size=page_size,
+                has_more=False
+            )
+
+        # Get total message count
+        from sqlmodel import func
+        count_result = await db_session.execute(
+            select(func.count(ChatMessage.id))
+            .where(ChatMessage.chat_session_id == chat_session.id)
+        )
+        total_count = count_result.scalar()
+
+        # Calculate pagination
+        offset = (page - 1) * page_size
+        has_more = (offset + page_size) < total_count
+
+        # Get messages for current page
+        result = await db_session.execute(
+            select(ChatMessage)
+            .where(ChatMessage.chat_session_id == chat_session.id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(page_size)
+            .offset(offset)
+        )
+        messages = result.scalars().all()
+
+        # Reverse to get chronological order
+        messages = list(reversed(messages))
+
+        # Format messages
+        message_responses = [
+            ChatMessageResponse(
+                id=msg.id,
+                role=msg.role,
+                content=msg.content,
+                created_at=msg.created_at
+            )
+            for msg in messages
+        ]
+
+        # Get summary if available
+        summary_text = None
+        if total_count > 10:
+            summary = await get_latest_chat_summary(
+                chat_session_id=chat_session.id,
+                db_session=db_session
+            )
+            if summary:
+                summary_text = summary.summary_text
+
+        return ChatHistoryResponse(
+            session_id=session_id,
+            chat_session_id=chat_session.chat_session_id,
+            messages=message_responses,
+            summary=summary_text,
+            total_count=total_count,
+            current_page=page,
+            page_size=page_size,
+            has_more=has_more
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Failed to retrieve chat history: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving chat history: {str(e)}")
 
 
 # =====================================================
@@ -633,31 +865,40 @@ async def process_decision(
 
     **Returns:** Updated game state, consequence narrative, and next decision options
     """
+    # === TIMING: Remove this line and all 'with timer()' blocks to disable ===
+    start_total = time.time()
+
     try:
         # Get player profile and game state
-        result = await db_session.execute(
-            select(PlayerProfile).where(
-                PlayerProfile.session_id == request.session_id)
-        )
-        profile = result.scalar_one_or_none()
+        with timer("1. DB: Fetch profile and game state"):
+            result = await db_session.execute(
+                select(PlayerProfile).where(
+                    PlayerProfile.session_id == request.session_id)
+            )
+            profile = result.scalar_one_or_none()
 
-        if not profile:
-            raise HTTPException(status_code=404, detail="Session not found")
+            if not profile:
+                raise HTTPException(
+                    status_code=404, detail="Session not found")
 
-        result = await db_session.execute(
-            select(GameState).where(GameState.profile_id == profile.id)
-        )
-        game_state = result.scalar_one_or_none()
+            result = await db_session.execute(
+                select(GameState).where(GameState.profile_id == profile.id)
+            )
+            game_state = result.scalar_one_or_none()
 
-        if not game_state:
-            raise HTTPException(status_code=404, detail="Game state not found")
+            if not game_state:
+                raise HTTPException(
+                    status_code=404, detail="Game state not found")
 
-        if game_state.game_status != GameStatus.ACTIVE:
-            raise HTTPException(status_code=400, detail="Game is not active")
+            if game_state.game_status != GameStatus.ACTIVE:
+                raise HTTPException(
+                    status_code=400, detail="Game is not active")
 
         # Apply monthly cash flow (only on phase 1 - start of month)
         from game_engine import apply_monthly_cash_flow, get_month_phase_name, get_current_month_name
-        cash_flow_data = apply_monthly_cash_flow(game_state)
+
+        with timer("2. Apply monthly cash flow"):
+            cash_flow_data = apply_monthly_cash_flow(game_state)
 
         # Log the monthly cash flow as a transaction (only if applied)
         if cash_flow_data.get("applied", False):
@@ -754,12 +995,13 @@ async def process_decision(
         )
 
         # Generate learning moment (sometimes)
-        learning = generate_learning_moment(
-            chosen_option=request.chosen_option,
-            state=game_state,
-            profile=profile,
-            client=client
-        )
+        with timer("8. AI: Generate learning moment"):
+            learning = generate_learning_moment(
+                chosen_option=request.chosen_option,
+                state=game_state,
+                profile=profile,
+                client=client
+            )
 
         # For options_presented, use what frontend sent (if available)
         options_presented_texts = chosen_option_data.get(
@@ -813,8 +1055,9 @@ async def process_decision(
         db_session.add(transaction_log)
 
         # Update game state in database
-        await db_session.commit()
-        await db_session.refresh(game_state)
+        with timer("9. DB: Commit and refresh"):
+            await db_session.commit()
+            await db_session.refresh(game_state)
 
         # NOTE: RAG decision indexing disabled for MVP (using SQLite DecisionHistory instead)
         # TODO (Future): When we have 100+ users, enable cross-player similarity search:
@@ -840,29 +1083,31 @@ async def process_decision(
         #     print(f"⚠️ Failed to index decision: {e}")
 
         # Generate next event
-        next_event_type = get_event_type(game_state, profile)
-        next_curveball = None
-        if next_event_type == "curveball":
-            next_curveball = generate_curveball_event(game_state)
+        with timer("10. AI: Generate next narrative"):
+            next_event_type = get_event_type(game_state, profile)
+            next_curveball = None
+            if next_event_type == "curveball":
+                next_curveball = generate_curveball_event(game_state)
 
-        # Generate next narrative
-        next_narrative = await generate_event_narrative(
-            event_type=next_event_type,
-            state=game_state,
-            profile=profile,
-            db_session=db_session,
-            curveball=next_curveball,
-            client=client
-        )
+            # Generate next narrative
+            next_narrative = await generate_event_narrative(
+                event_type=next_event_type,
+                state=game_state,
+                profile=profile,
+                db_session=db_session,
+                curveball=next_curveball,
+                client=client
+            )
 
         # Generate dynamic next options with AI
-        next_options_data = generate_dynamic_options(
-            event_type=next_event_type,
-            narrative=next_narrative,
-            state=game_state,
-            profile=profile,
-            client=client
-        )
+        with timer("11. AI: Generate next options"):
+            next_options_data = generate_dynamic_options(
+                event_type=next_event_type,
+                narrative=next_narrative,
+                state=game_state,
+                profile=profile,
+                client=client
+            )
 
         # Add event context to each option for frontend to send back
         for opt in next_options_data:
@@ -895,6 +1140,12 @@ async def process_decision(
 
         print(
             f"📤 RESPONSE - Investments being sent: {updated_state.investments}")
+
+        # === TIMING: Print total time ===
+        total_time = time.time() - start_total
+        print(f"\n⏱️  ========================================")
+        print(f"⏱️  TOTAL /api/step execution: {total_time:.3f}s")
+        print(f"⏱️  ========================================\n")
 
         # Create timestamp for transaction
         month_name = get_current_month_name(game_state.months_passed)
