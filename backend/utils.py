@@ -136,6 +136,47 @@ def get_starting_expenses(city: str, has_car: bool = False, has_pet: bool = Fals
     return round(expenses, 2)
 
 
+def calculate_expense_breakdown(total_expenses: float, city: str, has_car: bool, has_pet: bool) -> Dict[str, float]:
+    """
+    Break down total monthly expenses into categories.
+
+    Args:
+        total_expenses: Total monthly expenses
+        city: Player's city (affects housing costs)
+        has_car: Whether player owns a car
+        has_pet: Whether player has a pet
+
+    Returns:
+        Dictionary with expense breakdown by category
+    """
+    # Base percentages (these add up to 100%)
+    # Housing is typically the largest expense
+    housing_pct = 0.40  # 40% - rent/mortgage
+    food_pct = 0.25     # 25% - groceries, eating out
+    # 8-12% - public transport or car costs
+    transport_pct = 0.08 if not has_car else 0.12
+    utilities_pct = 0.12  # 12% - electricity, water, internet, phone
+    subscriptions_pct = 0.05  # 5% - Netflix, Spotify, gym, etc.
+    insurance_pct = 0.05 if not has_car else 0.08  # 5-8% - health, car insurance
+    other_pct = 0.05 if not has_pet else 0.07  # 5-7% - miscellaneous, pet care
+
+    # Adjust for city (Helsinki is more expensive for housing)
+    if city.lower() in ["helsinki", "espoo", "vantaa"]:
+        housing_pct += 0.05
+        other_pct -= 0.05
+
+    # Calculate actual amounts
+    return {
+        "housing": round(total_expenses * housing_pct, 2),
+        "food": round(total_expenses * food_pct, 2),
+        "transport": round(total_expenses * transport_pct, 2),
+        "utilities": round(total_expenses * utilities_pct, 2),
+        "subscriptions": round(total_expenses * subscriptions_pct, 2),
+        "insurance": round(total_expenses * insurance_pct, 2),
+        "other": round(total_expenses * other_pct, 2)
+    }
+
+
 def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly_expenses: float) -> Dict:
     """
     Initialize a new game state based on player profile.
@@ -185,6 +226,10 @@ def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly
         "has_loan": profile.starting_debt > 0
     }
 
+    # Break down monthly expenses into categories
+    expense_breakdown = calculate_expense_breakdown(
+        monthly_expenses, profile.city, has_car, has_pet)
+
     return {
         "current_step": 0,
         "current_age": profile.age,  # Initialize with player's starting age
@@ -194,6 +239,13 @@ def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly
         "money": profile.starting_savings,
         "monthly_income": monthly_income,
         "monthly_expenses": monthly_expenses,
+        "expense_housing": expense_breakdown["housing"],
+        "expense_food": expense_breakdown["food"],
+        "expense_transport": expense_breakdown["transport"],
+        "expense_utilities": expense_breakdown["utilities"],
+        "expense_subscriptions": expense_breakdown["subscriptions"],
+        "expense_insurance": expense_breakdown["insurance"],
+        "expense_other": expense_breakdown["other"],
         "investments": 0.0,
         "passive_income": 0.0,
         "debts": profile.starting_debt,
@@ -337,25 +389,25 @@ async def get_recent_decisions(
 ) -> list:
     """
     Retrieve recent decision history for a player from SQLite.
-    
+
     Args:
         profile_id: Player profile ID
         db_session: AsyncSession for database access
         limit: Maximum number of decisions to retrieve (default: 5)
-        
+
     Returns:
         List of DecisionHistory records, ordered by step_number descending
     """
     from sqlmodel import select
     from models import DecisionHistory
-    
+
     result = await db_session.execute(
         select(DecisionHistory)
         .where(DecisionHistory.profile_id == profile_id)
         .order_by(DecisionHistory.step_number.desc())
         .limit(limit)
     )
-    
+
     decisions = result.scalars().all()
     return list(reversed(decisions))  # Return chronologically (oldest first)
 
@@ -363,20 +415,20 @@ async def get_recent_decisions(
 def format_decisions_for_llm(decisions: list, include_summary: bool = False, summary_text: str = None) -> str:
     """
     Format decision history for LLM context in a structured way.
-    
+
     Args:
         decisions: List of DecisionHistory records
         include_summary: Whether to prepend an AI-generated summary
         summary_text: Optional pre-generated summary text
-        
+
     Returns:
         Formatted string for LLM context, matching RAG format style
     """
     if not decisions:
         return "This is the start of the player's journey."
-    
+
     lines = []
-    
+
     # Add summary if provided
     if include_summary and summary_text:
         lines.append("=== JOURNEY SUMMARY ===")
@@ -384,25 +436,25 @@ def format_decisions_for_llm(decisions: list, include_summary: bool = False, sum
         lines.append("\n=== RECENT DECISIONS ===")
     else:
         lines.append("=== PLAYER'S PAST DECISIONS ===")
-    
+
     # Format each decision
     for i, decision in enumerate(decisions, 1):
         fi_change = decision.fi_score_after - decision.fi_score_before
         money_change = decision.money_after - decision.money_before
-        
+
         decision_text = (
             f"{i}. Step {decision.step_number}: {decision.event_type}\n"
             f"   Choice: {decision.chosen_option[:150]}\n"
             f"   Outcome: FI Score {decision.fi_score_before:.1f}% → {decision.fi_score_after:.1f}% "
             f"({fi_change:+.1f}%), Money {money_change:+.0f}€\n"
         )
-        
+
         # Add consequence snippet if available
         if decision.consequence_narrative:
             decision_text += f"   Result: {decision.consequence_narrative[:200]}...\n"
-        
+
         lines.append(decision_text)
-    
+
     return "\n".join(lines)
 
 
@@ -413,43 +465,43 @@ async def create_decision_summary(
 ) -> str:
     """
     Create an AI-generated summary of decisions when history is long (>10 decisions).
-    
+
     Args:
         decisions: List of DecisionHistory records to summarize
         current_age: Player's current age
         current_fi_score: Player's current FI score
-        
+
     Returns:
         AI-generated summary text (or fallback summary if AI unavailable)
     """
     if len(decisions) <= 5:
         return ""  # No summary needed for short histories
-    
+
     # Calculate key metrics
     fi_start = decisions[0].fi_score_before if decisions else 0
     fi_progress = current_fi_score - fi_start
-    
+
     # Count major event types
     from collections import Counter
     event_counts = Counter(d.event_type for d in decisions)
-    
+
     # Calculate average decision quality (FI score changes)
     fi_changes = [d.fi_score_after - d.fi_score_before for d in decisions]
     avg_change = sum(fi_changes) / len(fi_changes) if fi_changes else 0
-    
+
     # Try AI summarization
     try:
         from ai_narrative import get_ai_client
         from google import genai
-        
+
         client = get_ai_client()
-        
+
         # Build context for AI
         decision_snippets = "\n".join([
             f"- Step {d.step_number} ({d.event_type}): {d.chosen_option[:80]} → FI {d.fi_score_after:.1f}%"
             for d in decisions[:10]  # Summarize first 10
         ])
-        
+
         prompt = f"""Summarize this player's financial journey in 2-3 sentences:
 
 Player is now age {current_age} with FI Score {current_fi_score:.1f}% (started at {fi_start:.1f}%).
@@ -464,17 +516,18 @@ Write a concise narrative summary focusing on their financial trajectory and dec
             model='gemini-2.0-flash-exp',
             contents=prompt
         )
-        
+
         summary = response.text.strip()
         return summary
-        
+
     except Exception as e:
         print(f"⚠️ AI summary failed: {e}, using fallback")
-        
+
         # Fallback: Rule-based summary
         trend = "improving" if fi_progress > 5 else "stable" if fi_progress > -5 else "declining"
-        top_events = ", ".join([f"{count} {event}" for event, count in event_counts.most_common(3)])
-        
+        top_events = ", ".join(
+            [f"{count} {event}" for event, count in event_counts.most_common(3)])
+
         return (
             f"Journey started at FI Score {fi_start:.1f}%, now at {current_fi_score:.1f}% ({trend}). "
             f"Encountered {len(decisions)} decisions including {top_events}. "
@@ -491,39 +544,39 @@ async def get_decision_context_for_llm(
 ) -> str:
     """
     Get formatted decision history for LLM context with automatic summarization.
-    
+
     Strategy:
     - If ≤10 decisions: Show last 5 decisions
     - If >10 decisions: Show AI summary of first (n-3) + last 3 raw decisions
-    
+
     Args:
         profile_id: Player profile ID
         db_session: AsyncSession for database access
         current_age: Player's current age
         current_fi_score: Player's current FI score
         max_recent: Number of recent raw decisions to show (default: 3)
-        
+
     Returns:
         Formatted context string for LLM prompt
     """
     from models import DecisionHistory
     from sqlmodel import select, func
-    
+
     # Count total decisions
     count_result = await db_session.execute(
         select(func.count(DecisionHistory.id))
         .where(DecisionHistory.profile_id == profile_id)
     )
     total_decisions = count_result.scalar()
-    
+
     if total_decisions == 0:
         return "This is the start of the player's journey."
-    
+
     # Short history: Just show last 5
     if total_decisions <= 10:
         decisions = await get_recent_decisions(profile_id, db_session, limit=5)
         return format_decisions_for_llm(decisions, include_summary=False)
-    
+
     # Long history: Summary + recent decisions
     else:
         # Get all decisions for summary
@@ -533,14 +586,15 @@ async def get_decision_context_for_llm(
             .order_by(DecisionHistory.step_number)
         )
         all_decisions = all_result.scalars().all()
-        
+
         # Get recent decisions
         recent_decisions = await get_recent_decisions(profile_id, db_session, limit=max_recent)
-        
+
         # Generate summary of earlier decisions
-        earlier_decisions = [d for d in all_decisions if d not in recent_decisions]
+        earlier_decisions = [
+            d for d in all_decisions if d not in recent_decisions]
         summary = await create_decision_summary(earlier_decisions, current_age, current_fi_score)
-        
+
         return format_decisions_for_llm(
             recent_decisions,
             include_summary=True,

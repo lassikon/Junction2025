@@ -1491,6 +1491,13 @@ async def process_decision(
             money=game_state.money,
             monthly_income=game_state.monthly_income,
             monthly_expenses=game_state.monthly_expenses,
+            expense_housing=game_state.expense_housing,
+            expense_food=game_state.expense_food,
+            expense_transport=game_state.expense_transport,
+            expense_utilities=game_state.expense_utilities,
+            expense_subscriptions=game_state.expense_subscriptions,
+            expense_insurance=game_state.expense_insurance,
+            expense_other=game_state.expense_other,
             investments=game_state.investments,
             passive_income=game_state.passive_income,
             debts=game_state.debts,
@@ -1519,6 +1526,20 @@ async def process_decision(
             monthly_income_change=transaction_data["monthly_income_change"],
             monthly_expense_change=transaction_data["monthly_expense_change"],
             passive_income_change=transaction_data["passive_income_change"],
+            expense_housing_change=transaction_data.get(
+                "expense_housing_change", 0.0),
+            expense_food_change=transaction_data.get(
+                "expense_food_change", 0.0),
+            expense_transport_change=transaction_data.get(
+                "expense_transport_change", 0.0),
+            expense_utilities_change=transaction_data.get(
+                "expense_utilities_change", 0.0),
+            expense_subscriptions_change=transaction_data.get(
+                "expense_subscriptions_change", 0.0),
+            expense_insurance_change=transaction_data.get(
+                "expense_insurance_change", 0.0),
+            expense_other_change=transaction_data.get(
+                "expense_other_change", 0.0),
             cash_balance=transaction_data["cash_balance"],
             investment_balance=transaction_data["investment_balance"],
             debt_balance=transaction_data["debt_balance"],

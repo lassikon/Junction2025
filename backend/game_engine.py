@@ -63,6 +63,15 @@ class DecisionEffect:
         self.expense_change: float = 0
         self.passive_income_change: float = 0
 
+        # Detailed expense category changes
+        self.expense_housing_change: float = 0
+        self.expense_food_change: float = 0
+        self.expense_transport_change: float = 0
+        self.expense_utilities_change: float = 0
+        self.expense_subscriptions_change: float = 0
+        self.expense_insurance_change: float = 0
+        self.expense_other_change: float = 0
+
         self.energy_change: int = 0
         self.motivation_change: int = 0
         self.social_change: int = 0
@@ -194,6 +203,21 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> Dict:
     state.monthly_expenses += effect.expense_change
     state.passive_income += effect.passive_income_change
 
+    # Update expense category breakdowns
+    state.expense_housing += effect.expense_housing_change
+    state.expense_food += effect.expense_food_change
+    state.expense_transport += effect.expense_transport_change
+    state.expense_utilities += effect.expense_utilities_change
+    state.expense_subscriptions += effect.expense_subscriptions_change
+    state.expense_insurance += effect.expense_insurance_change
+    state.expense_other += effect.expense_other_change
+
+    # Recalculate total monthly expenses from categories
+    state.monthly_expenses = (state.expense_housing + state.expense_food +
+                              state.expense_transport + state.expense_utilities +
+                              state.expense_subscriptions + state.expense_insurance +
+                              state.expense_other)
+
     # Convert negative cash to debt
     if state.money < 0:
         # Transfer negative balance to debt
@@ -253,6 +277,13 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> Dict:
         "monthly_income_change": effect.income_change,
         "monthly_expense_change": effect.expense_change,
         "passive_income_change": effect.passive_income_change,
+        "expense_housing_change": effect.expense_housing_change,
+        "expense_food_change": effect.expense_food_change,
+        "expense_transport_change": effect.expense_transport_change,
+        "expense_utilities_change": effect.expense_utilities_change,
+        "expense_subscriptions_change": effect.expense_subscriptions_change,
+        "expense_insurance_change": effect.expense_insurance_change,
+        "expense_other_change": effect.expense_other_change,
         "cash_balance": state.money,
         "investment_balance": state.investments,
         "debt_balance": state.debts,
@@ -848,6 +879,16 @@ def setup_dynamic_option_effect(option: Dict) -> DecisionEffect:
     effect.income_change = option.get("income_change", 0)
     effect.expense_change = option.get("expense_change", 0)
     effect.passive_income_change = option.get("passive_income_change", 0)
+
+    # Expense category effects
+    effect.expense_housing_change = option.get("expense_housing_change", 0)
+    effect.expense_food_change = option.get("expense_food_change", 0)
+    effect.expense_transport_change = option.get("expense_transport_change", 0)
+    effect.expense_utilities_change = option.get("expense_utilities_change", 0)
+    effect.expense_subscriptions_change = option.get(
+        "expense_subscriptions_change", 0)
+    effect.expense_insurance_change = option.get("expense_insurance_change", 0)
+    effect.expense_other_change = option.get("expense_other_change", 0)
 
     # Life metric effects
     effect.energy_change = int(option.get("energy_change", 0))
