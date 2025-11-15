@@ -1,12 +1,12 @@
 import React from "react";
-import TransactionDisplay from "./TransactionDisplay";
 import MonthlyCashFlow from "./MonthlyCashFlow";
+import LifeMetricsChanges from "./LifeMetricsChanges";
 import "../styles/ConsequenceModal.css";
 
 /**
  * ConsequenceModal - Display decision consequences and learning moments
  */
-const ConsequenceModal = ({ consequence, learningMoment, transactionSummary, monthlyCashFlow, onClose }) => {
+const ConsequenceModal = ({ consequence, learningMoment, monthlyCashFlow, lifeMetricsChanges, onClose }) => {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content consequence-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -22,12 +22,12 @@ const ConsequenceModal = ({ consequence, learningMoment, transactionSummary, mon
             <MonthlyCashFlow cashFlow={monthlyCashFlow} />
           )}
           
-          <p className="consequence-text">{consequence}</p>
-
-          {/* Transaction summary - decision effects */}
-          {transactionSummary && (
-            <TransactionDisplay transaction={transactionSummary} />
+          {/* Life metrics changes */}
+          {lifeMetricsChanges && (
+            <LifeMetricsChanges changes={lifeMetricsChanges} />
           )}
+          
+          <p className="consequence-text">{consequence}</p>
 
           {learningMoment && (
             <div className="learning-moment">

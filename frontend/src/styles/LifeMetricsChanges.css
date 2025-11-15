@@ -1,0 +1,79 @@
+/* LifeMetricsChanges.css */
+
+.life-metrics-changes {
+  background: rgba(245, 245, 245, 0.95);
+  border: 2px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.metrics-title {
+  margin: 0 0 12px 0;
+  font-size: 1em;
+  color: #1f2937;
+  text-align: center;
+  font-weight: 600;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.metric-change-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.metric-icon {
+  font-size: 1.2em;
+  flex-shrink: 0;
+}
+
+.metric-label {
+  flex: 1;
+  font-size: 0.9em;
+  color: #374151;
+  font-weight: 500;
+}
+
+.metric-value {
+  font-weight: 700;
+  font-size: 1em;
+  padding: 4px 10px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.metric-value.positive {
+  color: #059669;
+  background: rgba(5, 150, 105, 0.1);
+}
+
+.metric-value.negative {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.metric-value.neutral {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .metric-change-item {
+    padding: 8px 10px;
+  }
+}

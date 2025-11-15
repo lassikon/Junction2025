@@ -7,6 +7,7 @@ import SceneView from "../components/SceneView";
 import ChoiceList from "../components/ChoiceList";
 import ConsequenceModal from "../components/ConsequenceModal";
 import TransactionHistory from "../components/TransactionHistory";
+import TransactionLog from "../components/TransactionLog";
 import "../styles/GamePage.css";
 
 /**
@@ -16,6 +17,7 @@ import "../styles/GamePage.css";
 const GamePage = () => {
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [monthlyCashFlow, setMonthlyCashFlow] = useState(null);
+  const [lifeMetricsChanges, setLifeMetricsChanges] = useState(null);
   
   const {
     sessionId,
@@ -26,8 +28,8 @@ const GamePage = () => {
     closeConsequenceModal,
     consequenceData,
     setConsequenceData,
-    lastTransaction,
-    setLastTransaction,
+    transactionHistory,
+    addTransaction,
     currentNarrative,
     currentOptions,
     setNarrativeAndOptions,
@@ -52,17 +54,19 @@ const GamePage = () => {
       // Close decision modal
       closeDecisionModal();
 
-      // Store transaction summary
+      // Add transaction to history
       if (result.transaction_summary) {
-        setLastTransaction(result.transaction_summary);
+        addTransaction(result.transaction_summary);
       }
 
       // Store monthly cash flow
       if (result.monthly_cash_flow) {
         setMonthlyCashFlow(result.monthly_cash_flow);
       }
-      if (result.monthly_cash_flow) {
-        setMonthlyCashFlow(result.monthly_cash_flow);
+
+      // Store life metrics changes
+      if (result.life_metrics_changes) {
+        setLifeMetricsChanges(result.life_metrics_changes);
       }
 
       // Store consequence data and open consequence modal
@@ -104,7 +108,7 @@ const GamePage = () => {
 
   return (
     <div className="game-page">
-      <TopBar onShowTransactions={() => setShowTransactionHistory(true)} />
+      <TopBar onShowTransactions={() => setShowTransactionHistory(true)} playerState={playerState} />
 
       {/* Error Banner for Decision Errors */}
       {decisionMutation.isError && (
@@ -120,9 +124,24 @@ const GamePage = () => {
       {/* Main Game Content */}
       <div className="game-content">
         <MetricsBar gameState={playerState} />
+        <div className="split-layout">
+          <TransactionLog 
+            transactions={transactionHistory} 
+            currentMonthsPassed={playerState.months_passed}
+            currentMonthPhase={playerState.month_phase}
+          />
+          <div className="fi-score-container">
+            <SceneView
+              gameState={playerState}
+              onMakeDecision={handleMakeDecision}
+              isCompact={true}
+            />
+          </div>
+        </div>
         <SceneView
           gameState={playerState}
           onMakeDecision={handleMakeDecision}
+          showOnlyBottom={true}
         />
       </div>
 
@@ -142,8 +161,8 @@ const GamePage = () => {
         <ConsequenceModal
           consequence={consequenceData.consequence}
           learningMoment={consequenceData.learningMoment}
-          transactionSummary={lastTransaction}
           monthlyCashFlow={monthlyCashFlow}
+          lifeMetricsChanges={lifeMetricsChanges}
           onClose={handleCloseConsequence}
         />
       )}

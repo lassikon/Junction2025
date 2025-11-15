@@ -28,7 +28,17 @@ def load_prompt_template(filename: str) -> Dict:
         return json.load(f)
 
 
-# Load all prompt templates at module level
+# Cache for prompt templates (can be reloaded)
+_prompt_cache = {}
+
+
+def get_prompts(template_name: str) -> Dict:
+    """Get prompt template with dynamic reloading support"""
+    # Reload from file each time to pick up changes without server restart
+    return load_prompt_template(template_name)
+
+
+# Backward compatibility - load at module level but functions will use get_prompts()
 NARRATIVE_PROMPTS = load_prompt_template("narrative_prompt.json")
 CONSEQUENCE_PROMPTS = load_prompt_template("consequence_prompt.json")
 LEARNING_PROMPTS = load_prompt_template("learning_moment_prompt.json")
@@ -401,15 +411,30 @@ def build_narrative_prompt(
     else:
         assets_text = "Assets Owned: None yet"
 
+    from game_engine import get_month_phase_name, get_current_month_name
+
+    # Get month context
+    month_name = get_current_month_name(state.months_passed)
+    phase_name = get_month_phase_name(state.month_phase)
+
+    # Phase context for AI
+    phase_context = ""
+    if state.month_phase == 1:
+        phase_context = "\n\n⏰ TIMING: Start of {month_name} - Player just received their monthly income and paid expenses. Focus on budget planning, savings allocation, and major financial decisions for the month ahead."
+    elif state.month_phase == 2:
+        phase_context = "\n\n⏰ TIMING: Mid-{month_name} - Halfway through the month. Focus on smaller daily expenses, social activities, and maintaining the budget set at month start."
+    else:  # phase 3
+        phase_context = "\n\n⏰ TIMING: Late {month_name} - End of month approaching. Focus on final spending decisions, managing remaining budget, and preparing for next month."
+
     # Context about the player
     context = f"""{NARRATIVE_PROMPTS['system_context']}
 
 Player Profile:
 - Age: {state.current_age} (started at {profile.age})
-- Time in game: {state.years_passed:.1f} years
+- Time in game: {state.years_passed:.1f} years ({phase_name} {month_name})
 - City: {profile.city}
 - Education: {profile.education_path.value}
-- Risk Attitude: {profile.risk_attitude.value}
+- Risk Attitude: {profile.risk_attitude.value}{phase_context}
 
 Current Situation (Step {state.current_step}):
 - Money: €{state.money:.0f}
@@ -531,6 +556,9 @@ def generate_dynamic_options(
         return generate_fallback_options(event_type, state)
 
     try:
+        # Reload prompts to get latest version
+        DYNAMIC_OPTIONS_PROMPTS = get_prompts("dynamic_options_prompt.json")
+
         # Build prompt for dynamic option generation
         assets_str = ", ".join(
             [f"{k}: {v}" for k, v in state.assets.items()]) if state.assets else "None"

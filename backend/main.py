@@ -13,7 +13,7 @@ from models import (
     PlayerProfile, GameState, DecisionHistory, LeaderboardEntry,
     OnboardingRequest, GameStateResponse, OnboardingResponse, GameStatus,
     DecisionRequest, DecisionResponse, TransactionLog, TransactionSummary,
-    MonthlyCashFlowSummary
+    MonthlyCashFlowSummary, LifeMetricsChanges
 )
 from utils import initialize_game_state, generate_session_id, calculate_fi_score
 from game_engine import (
@@ -603,6 +603,12 @@ async def process_decision(
         chosen_option_data = None
         chosen_index = -1
 
+        print(f"🔍 OPTION MATCHING DEBUG:")
+        print(f"  Total available options: {len(available_options)}")
+        for i, opt in enumerate(available_options):
+            print(
+                f"  Option {i}: text='{opt.get('text', 'N/A')[:50]}...' explanation='{opt.get('explanation', 'N/A')[:50]}...'")
+
         # If frontend sent an index, use it directly (most reliable)
         if request.option_index is not None and 0 <= request.option_index < len(available_options):
             chosen_option_data = available_options[request.option_index]
@@ -636,6 +642,17 @@ async def process_decision(
         # Apply decision effects and get transaction summary
         effect = setup_dynamic_option_effect(chosen_option_data)
 
+        # Debug: Log chosen option details
+        print(f"📝 CHOSEN OPTION DEBUG:")
+        print(f"  Request option_index: {request.option_index}")
+        print(f"  Request chosen_option text: {request.chosen_option}")
+        print(f"  Matched option data:")
+        print(f"    - text: {chosen_option_data.get('text', 'N/A')}")
+        print(
+            f"    - explanation: {chosen_option_data.get('explanation', 'N/A')}")
+        print(
+            f"    - money_change: {chosen_option_data.get('money_change', 0)}")
+
         # Debug: Log effect details
         print(f"💰 APPLYING EFFECTS:")
         print(f"  Investment change: {effect.investment_change}")
@@ -647,6 +664,19 @@ async def process_decision(
 
         print(
             f"  After - Investments: {game_state.investments}, Money: {game_state.money}")
+
+        # Calculate life metrics changes
+        life_metrics_changes = LifeMetricsChanges(
+            energy_change=game_state.energy - energy_before,
+            motivation_change=game_state.motivation - motivation_before,
+            social_change=game_state.social_life - social_before,
+            knowledge_change=game_state.financial_knowledge -
+            game_state.financial_knowledge  # Knowledge change is in effect
+        )
+
+        # Get knowledge change from effect
+        if hasattr(effect, 'knowledge_change'):
+            life_metrics_changes.knowledge_change = effect.knowledge_change
 
         # Generate consequence narrative
         consequence = generate_consequence_narrative(
@@ -766,6 +796,8 @@ async def process_decision(
             current_step=game_state.current_step,
             current_age=game_state.current_age,
             years_passed=game_state.years_passed,
+            months_passed=game_state.months_passed,
+            month_phase=game_state.month_phase,
             money=game_state.money,
             monthly_income=game_state.monthly_income,
             monthly_expenses=game_state.monthly_expenses,
@@ -784,6 +816,11 @@ async def process_decision(
         print(
             f"📤 RESPONSE - Investments being sent: {updated_state.investments}")
 
+        # Create timestamp for transaction
+        month_name = get_current_month_name(game_state.months_passed)
+        phase_name = get_month_phase_name(game_state.month_phase)
+        timestamp = f"{phase_name} {month_name[:3]}"  # e.g., "Early Jan"
+
         # Create transaction summary for response
         transaction_summary = TransactionSummary(
             cash_change=transaction_data["cash_change"],
@@ -798,7 +835,8 @@ async def process_decision(
             monthly_income_total=transaction_data["monthly_income_total"],
             monthly_expense_total=transaction_data["monthly_expense_total"],
             passive_income_total=transaction_data["passive_income_total"],
-            description=transaction_data["description"]
+            description=transaction_data["description"],
+            timestamp=timestamp
         )
 
         # Create monthly cash flow summary for response
@@ -820,7 +858,8 @@ async def process_decision(
             next_options=next_options,
             learning_moment=learning,
             transaction_summary=transaction_summary,
-            monthly_cash_flow=monthly_cash_flow_summary
+            monthly_cash_flow=monthly_cash_flow_summary,
+            life_metrics_changes=life_metrics_changes
         )
 
     except HTTPException:

@@ -7,7 +7,7 @@ import "../styles/TopBar.css";
 /**
  * TopBar - Header with API status and game controls
  */
-const TopBar = ({ onShowTransactions }) => {
+const TopBar = ({ onShowTransactions, playerState }) => {
   const navigate = useNavigate();
   const { data: healthStatus } = useHealthCheck();
   const { resetGame } = useGameStore();
@@ -25,10 +25,30 @@ const TopBar = ({ onShowTransactions }) => {
     window.location.reload();
   };
 
+  // Get month name and phase
+  const getMonthName = (monthsPassed) => {
+    const months = ["January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December"];
+    return months[monthsPassed % 12];
+  };
+
+  const getPhaseName = (phase) => {
+    return { 1: "Early", 2: "Mid", 3: "Late" }[phase] || "Early";
+  };
+
+  const monthDisplay = playerState ? 
+    `${getPhaseName(playerState.month_phase)} ${getMonthName(playerState.months_passed)}` : 
+    "";
+
   return (
     <div className="top-bar">
       <div className="top-bar-left">
         <h1 className="game-title">🎮 LifeSim: Financial Independence Quest</h1>
+        {monthDisplay && (
+          <div className="month-indicator">
+            📅 {monthDisplay}
+          </div>
+        )}
       </div>
       
       <div className="top-bar-right">

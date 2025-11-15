@@ -11,6 +11,16 @@
   overflow: hidden;
 }
 
+.scene-view.compact {
+  max-width: 600px;
+  padding: 15px;
+  background: none;
+}
+
+.scene-view.bottom-only {
+  max-width: 1200px;
+}
+
 .age-badge {
   position: absolute;
   top: 20px;

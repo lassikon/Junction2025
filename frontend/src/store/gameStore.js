@@ -17,6 +17,11 @@ export const useGameStore = create(
   persist(
     (set, get) => ({
       // ===================================
+      // VERSION CONTROL (increment to clear old cached data)
+      // ===================================
+      _storeVersion: 2, // Increment when store structure changes
+
+      // ===================================
       // SESSION STATE
       // ===================================
       sessionId: null,
@@ -62,13 +67,18 @@ export const useGameStore = create(
         }),
 
       // ===================================
-      // TRANSACTION SUMMARY (from last decision)
+      // TRANSACTION HISTORY (rolling log of financial changes)
       // ===================================
-      lastTransaction: null,
+      transactionHistory: [],
 
-      setLastTransaction: (transaction) =>
+      addTransaction: (transaction) =>
+        set((state) => ({
+          transactionHistory: [...state.transactionHistory, transaction],
+        })),
+
+      clearTransactionHistory: () =>
         set({
-          lastTransaction: transaction,
+          transactionHistory: [],
         }),
 
       // ===================================
@@ -117,18 +127,20 @@ export const useGameStore = create(
           consequenceData: null,
           currentNarrative: "",
           currentOptions: [],
+          transactionHistory: [],
         });
       },
     }),
     {
       name: "lifesim-game-storage", // localStorage key
+      version: 2, // Must match _storeVersion - will clear old data automatically
       // Only persist essential data across sessions
+      // NOTE: Do NOT persist currentNarrative/currentOptions - they must be fresh from API
       partialize: (state) => ({
+        _storeVersion: state._storeVersion,
         sessionId: state.sessionId,
         soundEnabled: state.soundEnabled,
         animationsEnabled: state.animationsEnabled,
-        currentNarrative: state.currentNarrative,
-        currentOptions: state.currentOptions,
       }),
     }
   )

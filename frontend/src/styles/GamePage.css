@@ -8,6 +8,25 @@
   margin: 0 auto;
 }
 
+.split-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+  padding: 0 20px;
+}
+
+.fi-score-container {
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 1024px) {
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Error Banner */
 .error-banner {
   background: #f44336;

@@ -9,22 +9,24 @@
 }
 
 .monthly-cash-flow.time-indicator {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(139, 92, 246, 0.1));
-  border: 2px solid rgba(168, 85, 247, 0.3);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(139, 92, 246, 0.15));
+  border: 2px solid rgba(168, 85, 247, 0.4);
   padding: 16px;
 }
 
 .monthly-cash-flow.time-indicator h3 {
   margin: 0 0 8px 0;
-  color: #c084fc;
+  color: #7c3aed;
+  font-weight: 700;
 }
 
 .phase-description {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: #4b5563;
   font-size: 0.9em;
   text-align: center;
   font-style: italic;
+  font-weight: 500;
 }
 
 .monthly-cash-flow h3 {
@@ -39,10 +41,11 @@
   padding: 12px;
   background: rgba(59, 130, 246, 0.15);
   border-radius: 8px;
-  color: #93c5fd;
+  color: #1e3a8a;
   font-size: 0.9em;
   text-align: center;
   border: 1px solid rgba(59, 130, 246, 0.2);
+  font-weight: 600;
 }
 
 .cash-flow-breakdown {
@@ -73,7 +76,8 @@
 
 .flow-label {
   font-size: 0.95em;
-  color: #e5e7eb;
+  color: #1f2937;
+  font-weight: 600;
 }
 
 .flow-amount {

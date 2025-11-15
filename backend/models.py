@@ -281,6 +281,8 @@ class GameStateResponse(SQLModel):
     current_step: int
     current_age: int  # Player's current age
     years_passed: float  # Time elapsed in game
+    months_passed: int = 0  # Total months elapsed
+    month_phase: int = 1  # Current phase within month (1, 2, or 3)
 
     # Financial metrics
     money: float
@@ -326,6 +328,7 @@ class DecisionResponse(SQLModel):
     learning_moment: Optional[str] = None
     transaction_summary: Optional["TransactionSummary"] = None
     monthly_cash_flow: Optional["MonthlyCashFlowSummary"] = None
+    life_metrics_changes: Optional["LifeMetricsChanges"] = None
 
 
 class MonthlyCashFlowSummary(SQLModel):
@@ -338,6 +341,14 @@ class MonthlyCashFlowSummary(SQLModel):
     month_name: str = ""
     month_phase: int = 1  # 1, 2, or 3
     month_phase_name: str = "Early"  # Early, Mid, Late
+
+
+class LifeMetricsChanges(SQLModel):
+    """Summary of life metrics changes from a decision"""
+    energy_change: int = 0
+    motivation_change: int = 0
+    social_change: int = 0
+    knowledge_change: int = 0
 
 
 class TransactionSummary(SQLModel):
@@ -362,6 +373,9 @@ class TransactionSummary(SQLModel):
 
     # Human-readable description
     description: str
+
+    # Timestamp for when this occurred
+    timestamp: Optional[str] = None
 
 
 class TransactionLogResponse(SQLModel):

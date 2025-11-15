@@ -5,7 +5,7 @@ import "../styles/SceneView.css";
  * SceneView - Main visual display with FI score, life metrics, and assets
  * Acts as the "scene" with character progression
  */
-const SceneView = ({ gameState, onMakeDecision }) => {
+const SceneView = ({ gameState, onMakeDecision, isCompact = false, showOnlyBottom = false }) => {
   const {
     current_step = 0,
     current_age = 25,
@@ -80,14 +80,42 @@ const SceneView = ({ gameState, onMakeDecision }) => {
     return "fi-low";
   };
 
-  return (
-    <div className="scene-view" style={{backgroundImage: `url(${backgroundImg})`}}>
-      {/* Age & Step Badges */}
-      <div className="age-badge">👤 Age {current_age} • {years_passed.toFixed(1)} years</div>
-      <div className="step-badge">Step {current_step}</div>
+  if (isCompact) {
+    return (
+      <div className="scene-view compact">
+        {/* FI Score - Central Focus */}
+        <div className="fi-score-section">
+          <div className="fi-score-card">
+            <h2>Financial Independence Score</h2>
+            <div className={`fi-score ${getFIScoreColor(fi_score)}`}>
+              {fi_score.toFixed(1)}%
+            </div>
+            <p className="fi-score-description">
+              {fi_score >= 100
+                ? "🎉 You've achieved Financial Independence!"
+                : `${(100 - fi_score).toFixed(0)}% to go until FI!`}
+            </p>
+            <div className="fi-progress-bar">
+              <div
+                className="fi-progress-fill"
+                style={{ width: `${Math.min(fi_score, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-      {/* Visual Game Scene */}
-      <div className="game-scene">
+  if (showOnlyBottom) {
+    return (
+      <div className="scene-view bottom-only" style={{backgroundImage: `url(${backgroundImg})`}}>
+        {/* Age & Step Badges */}
+        <div className="age-badge">👤 Age {current_age} • {years_passed.toFixed(1)} years</div>
+        <div className="step-badge">Step {current_step}</div>
+
+        {/* Visual Game Scene */}
+        <div className="game-scene">
         {/* Character Avatar */}
         <div className="character-container">
           <img src={characterImg} alt="Character" className="character-img" />
@@ -106,27 +134,6 @@ const SceneView = ({ gameState, onMakeDecision }) => {
             <img src={vehicleImg} alt="Vehicle" className="vehicle-img" />
           </div>
         )}
-      </div>
-
-      {/* FI Score - Central Focus */}
-      <div className="fi-score-section">
-        <div className="fi-score-card">
-          <h2>Financial Independence Score</h2>
-          <div className={`fi-score ${getFIScoreColor(fi_score)}`}>
-            {fi_score.toFixed(1)}%
-          </div>
-          <p className="fi-score-description">
-            {fi_score >= 100
-              ? "🎉 You've achieved Financial Independence!"
-              : `${(100 - fi_score).toFixed(0)}% to go until FI!`}
-          </p>
-          <div className="fi-progress-bar">
-            <div
-              className="fi-progress-fill"
-              style={{ width: `${Math.min(fi_score, 100)}%` }}
-            />
-          </div>
-        </div>
       </div>
 
       {/* Life Balance Metrics */}
@@ -253,7 +260,10 @@ const SceneView = ({ gameState, onMakeDecision }) => {
         </div>
       )}
     </div>
-  );
+    );
+  }
+
+  return null;
 };
 
 export default SceneView;
