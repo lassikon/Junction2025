@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useGameStore } from "../store/gameStore";
-import { usePlayerState, useMakeDecision } from "../api/lifesim";
+import { usePlayerState, useMakeDecision, useNextQuestion } from "../api/lifesim";
 import TopBar from "../components/TopBar";
 import MetricsBar from "../components/MetricsBar";
 import SceneView from "../components/SceneView";
@@ -8,6 +8,7 @@ import ChoiceList from "../components/ChoiceList";
 import ConsequenceModal from "../components/ConsequenceModal";
 import TransactionHistory from "../components/TransactionHistory";
 import TransactionLog from "../components/TransactionLog";
+import FloatingChatbot from "../components/FloatingChatbot";
 import "../styles/GamePage.css";
 
 /**
@@ -18,6 +19,7 @@ const GamePage = () => {
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [monthlyCashFlow, setMonthlyCashFlow] = useState(null);
   const [lifeMetricsChanges, setLifeMetricsChanges] = useState(null);
+  const [fetchNextQuestion, setFetchNextQuestion] = useState(false);
   
   const {
     sessionId,
@@ -33,11 +35,25 @@ const GamePage = () => {
     currentNarrative,
     currentOptions,
     setNarrativeAndOptions,
+    showChatbot,
+    toggleChatbot,
   } = useGameStore();
 
   const { data: playerState, isLoading: isLoadingPlayerState } =
     usePlayerState(sessionId);
   const decisionMutation = useMakeDecision();
+  
+  // Fetch next question when consequence is shown
+  const { data: nextQuestionData, isLoading: isLoadingNextQuestion } = useNextQuestion(sessionId, fetchNextQuestion);
+  
+  // When next question data arrives, store it
+  React.useEffect(() => {
+    if (nextQuestionData && fetchNextQuestion) {
+      console.log(nextQuestionData.was_cached ? "✅ Using cached next question" : "⚠️ Generated next question on-demand");
+      setNarrativeAndOptions(nextQuestionData.next_narrative, nextQuestionData.next_options);
+      setFetchNextQuestion(false); // Reset flag
+    }
+  }, [nextQuestionData, fetchNextQuestion, setNarrativeAndOptions]);
 
   const handleMakeDecision = () => {
     openDecisionModal();
@@ -84,8 +100,14 @@ const GamePage = () => {
         learningMoment: result.learning_moment,
       });
 
-      // Store next narrative and options
-      setNarrativeAndOptions(result.next_narrative, result.next_options);
+      // If next question is not in response, trigger fetch
+      if (!result.next_narrative || !result.next_options) {
+        console.log("🔄 Fetching next question...");
+        setFetchNextQuestion(true);
+      } else {
+        // Store next narrative and options if they were returned
+        setNarrativeAndOptions(result.next_narrative, result.next_options);
+      }
 
       console.log("✅ Decision processed successfully");
     } catch (error) {
@@ -176,6 +198,13 @@ const GamePage = () => {
           onClose={() => setShowTransactionHistory(false)}
         />
       )}
+
+      {/* Floating Financial Advisor Chatbot */}
+      <FloatingChatbot
+        sessionId={sessionId}
+        isOpen={showChatbot}
+        onToggle={toggleChatbot}
+      />
     </div>
   );
 };
