@@ -177,7 +177,21 @@ class GameState(SQLModel, table=True):
     # Financial metrics
     money: float = Field(default=0.0)  # Current cash/savings
     monthly_income: float = Field(default=0.0)
+    # Total (calculated from breakdown)
     monthly_expenses: float = Field(default=0.0)
+
+    # Detailed expense breakdown
+    expense_housing: float = Field(default=0.0)  # Rent/mortgage
+    expense_food: float = Field(default=0.0)  # Groceries and eating
+    expense_transport: float = Field(
+        default=0.0)  # Public transport, car costs
+    # Electricity, water, internet
+    expense_utilities: float = Field(default=0.0)
+    expense_subscriptions: float = Field(default=0.0)  # Netflix, gym, etc.
+    expense_insurance: float = Field(
+        default=0.0)  # Health, car, home insurance
+    expense_other: float = Field(default=0.0)  # Miscellaneous
+
     investments: float = Field(default=0.0)  # Value of investments
     passive_income: float = Field(default=0.0)  # Income from investments
     debts: float = Field(default=0.0)
@@ -459,6 +473,16 @@ class GameStateResponse(SQLModel):
     money: float
     monthly_income: float
     monthly_expenses: float
+
+    # Expense breakdown
+    expense_housing: float = 0.0
+    expense_food: float = 0.0
+    expense_transport: float = 0.0
+    expense_utilities: float = 0.0
+    expense_subscriptions: float = 0.0
+    expense_insurance: float = 0.0
+    expense_other: float = 0.0
+
     investments: float
     passive_income: float
     debts: float
@@ -533,6 +557,23 @@ class LifeMetricsChanges(SQLModel):
     knowledge_change: int = 0
 
 
+class ExpenseBreakdown(SQLModel):
+    """Detailed breakdown of monthly expenses"""
+    housing: float = 0.0
+    food: float = 0.0
+    transport: float = 0.0
+    utilities: float = 0.0
+    subscriptions: float = 0.0
+    insurance: float = 0.0
+    other: float = 0.0
+
+    @property
+    def total(self) -> float:
+        """Calculate total monthly expenses"""
+        return (self.housing + self.food + self.transport +
+                self.utilities + self.subscriptions + self.insurance + self.other)
+
+
 class TransactionSummary(SQLModel):
     """Summary of financial changes from a decision"""
     # One-time changes
@@ -544,6 +585,15 @@ class TransactionSummary(SQLModel):
     monthly_income_change: float
     monthly_expense_change: float
     passive_income_change: float
+
+    # Detailed expense category changes (optional)
+    expense_housing_change: float = 0.0
+    expense_food_change: float = 0.0
+    expense_transport_change: float = 0.0
+    expense_utilities_change: float = 0.0
+    expense_subscriptions_change: float = 0.0
+    expense_insurance_change: float = 0.0
+    expense_other_change: float = 0.0
 
     # New balances
     cash_balance: float
