@@ -1,0 +1,20 @@
+- stats to left of the screen
+- age is shown twice and doesnt adjust correctly
+- learn more button on top
+- chatbot on right as a popup
+- login and credentials and test mode
+- leaderboard(if we have time)
+- images to look nice
+- api connected removed
+- starting values persist
+- screensize adjusting
+- you cant have so much incomes/expenses as a 15 yo prkl
+
+
+kysymyksiä:
+1. Miten nuoret omaksuvat parhaiten taloustaitoja? Onko parempi lyhyet mikro-opit vai pitkät tarinat?
+2. Mitkä talousaiheet ovat nuorille vaikeimpia?
+3. Missä määrin AI saa personoida? Pitääkö välttää liian syvää profiilianalyysia?
+4. Mitä tietoja nuorilta voi kerätä tutkimuksen mukaan turvallisesti?
+5. Mitkä ovat 10 keskeisintä taitoa, jotka nuorten tulisi oppia?
+6. Kuinka pitkää pelisessiota opettajat toivovat?

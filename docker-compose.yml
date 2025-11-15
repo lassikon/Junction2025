@@ -28,7 +28,6 @@ services:
       - PORT=4000
       - REACT_APP_API_URL=http://localhost:8000
       - CHOKIDAR_USEPOLLING=true
-      - PORT=4000
     depends_on:
       - backend
     restart: unless-stopped
