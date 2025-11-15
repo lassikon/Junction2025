@@ -108,14 +108,125 @@ const SceneView = ({ gameState, onMakeDecision, isCompact = false, showOnlyBotto
   }
 
   if (showOnlyBottom) {
+    // Calculate actual current age including years passed
+    const displayAge = Math.floor(current_age + years_passed);
+    
     return (
       <div className="scene-view bottom-only" style={{backgroundImage: `url(${backgroundImg})`}}>
         {/* Age & Step Badges */}
-        <div className="age-badge">👤 Age {current_age} • {years_passed.toFixed(1)} years</div>
+        <div className="age-badge">👤 Age {displayAge}</div>
         <div className="step-badge">Step {current_step}</div>
 
-        {/* Visual Game Scene */}
-        <div className="game-scene">
+        {/* Main Game Layout - Left sidebar with metrics, right with scene */}
+        <div className="game-main-layout">
+          {/* Left Sidebar - FI Score and Life Balance */}
+          <div className="game-left-sidebar">
+            {/* FI Score */}
+            <div className="fi-score-sidebar">
+              <h3>Financial Independence</h3>
+              <div className={`fi-score-large ${getFIScoreColor(fi_score)}`}>
+                {fi_score.toFixed(1)}%
+              </div>
+              <div className="fi-progress-bar-sidebar">
+                <div
+                  className="fi-progress-fill"
+                  style={{ width: `${Math.min(fi_score, 100)}%` }}
+                />
+              </div>
+              <p className="fi-score-text">
+                {fi_score >= 100
+                  ? "🎉 FI Achieved!"
+                  : `${(100 - fi_score).toFixed(0)}% to FI`}
+              </p>
+            </div>
+
+            {/* Life Balance Metrics */}
+            <div className="life-metrics-sidebar">
+              <h3>Life Balance</h3>
+              <div className="life-metrics-compact">
+                <div className="life-metric-compact">
+                  <div className="life-metric-header">
+                    <span className="life-metric-icon">⚡</span>
+                    <span className="life-metric-label">Energy</span>
+                  </div>
+                  <div className="life-metric-bar">
+                    <div
+                      className={`life-metric-fill ${getStatusColor(energy)}`}
+                      style={{ width: `${energy}%` }}
+                    >
+                      <span className="life-metric-value">{energy}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="life-metric-compact">
+                  <div className="life-metric-header">
+                    <span className="life-metric-icon">🎯</span>
+                    <span className="life-metric-label">Motivation</span>
+                  </div>
+                  <div className="life-metric-bar">
+                    <div
+                      className={`life-metric-fill ${getStatusColor(motivation)}`}
+                      style={{ width: `${motivation}%` }}
+                    >
+                      <span className="life-metric-value">{motivation}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="life-metric-compact">
+                  <div className="life-metric-header">
+                    <span className="life-metric-icon">👥</span>
+                    <span className="life-metric-label">Social</span>
+                  </div>
+                  <div className="life-metric-bar">
+                    <div
+                      className={`life-metric-fill ${getStatusColor(social_life)}`}
+                      style={{ width: `${social_life}%` }}
+                    >
+                      <span className="life-metric-value">{social_life}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="life-metric-compact">
+                  <div className="life-metric-header">
+                    <span className="life-metric-icon">📚</span>
+                    <span className="life-metric-label">Knowledge</span>
+                  </div>
+                  <div className="life-metric-bar">
+                    <div
+                      className={`life-metric-fill ${getStatusColor(financial_knowledge)}`}
+                      style={{ width: `${financial_knowledge}%` }}
+                    >
+                      <span className="life-metric-value">{financial_knowledge}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Visual Game Scene */}
+          <div className="game-right-content">
+            {/* Action Button */}
+            {game_status === "active" && (
+              <div className="action-section">
+                <button className="btn-action" onClick={onMakeDecision}>
+                  Continue Your Journey →
+                </button>
+              </div>
+            )}
+
+            {game_status === "completed" && (
+              <div className="completion-message">
+                <h2>🎉 Congratulations!</h2>
+                <p>You've completed your journey to financial independence!</p>
+              </div>
+            )}
+
+            {/* Visual Game Scene */}
+            <div className="game-scene">
         {/* Character Avatar */}
         <div className="character-container">
           <img src={characterImg} alt="Character" className="character-img" />
@@ -134,132 +245,52 @@ const SceneView = ({ gameState, onMakeDecision, isCompact = false, showOnlyBotto
             <img src={vehicleImg} alt="Vehicle" className="vehicle-img" />
           </div>
         )}
-      </div>
+            </div>
 
-      {/* Life Balance Metrics */}
-      <div className="life-metrics-section">
-        <h3>Life Balance</h3>
-        <div className="life-metrics-grid">
-          <div className="life-metric">
-            <div className="life-metric-header">
-              <span className="life-metric-icon">⚡</span>
-              <span className="life-metric-label">Energy</span>
-            </div>
-            <div className="life-metric-bar">
-              <div
-                className={`life-metric-fill ${getStatusColor(energy)}`}
-                style={{ width: `${energy}%` }}
-              >
-                <span className="life-metric-value">{energy}</span>
-              </div>
-            </div>
-          </div>
+            {/* Assets Display */}
+            {assets && Object.keys(assets).length > 0 && (
+              <div className="assets-section">
+                <h3>📦 Your Assets</h3>
+                <div className="assets-grid">
+                  {Object.entries(assets).map(([key, value]) => {
+                    // Get icon based on asset type
+                    const getAssetIcon = (key) => {
+                      if (key.includes('car') || key.includes('vehicle')) return '🚗';
+                      if (key.includes('house') || key.includes('housing')) return '🏠';
+                      if (key.includes('pet')) return '🐕';
+                      if (key.includes('bike')) return '🚲';
+                      return '📦';
+                    };
 
-          <div className="life-metric">
-            <div className="life-metric-header">
-              <span className="life-metric-icon">🎯</span>
-              <span className="life-metric-label">Motivation</span>
-            </div>
-            <div className="life-metric-bar">
-              <div
-                className={`life-metric-fill ${getStatusColor(motivation)}`}
-                style={{ width: `${motivation}%` }}
-              >
-                <span className="life-metric-value">{motivation}</span>
-              </div>
-            </div>
-          </div>
+                    // Format value nicely
+                    const formatValue = (value) => {
+                      if (typeof value === 'boolean') return value ? '✓ Owned' : '✗ Not owned';
+                      if (typeof value === 'object') {
+                        const details = [];
+                        if (value.type) details.push(`Type: ${value.type.replace(/_/g, ' ')}`);
+                        if (value.value) details.push(`Value: €${value.value}`);
+                        if (value.name) details.push(`Name: ${value.name}`);
+                        return details.join(', ');
+                      }
+                      return value;
+                    };
 
-          <div className="life-metric">
-            <div className="life-metric-header">
-              <span className="life-metric-icon">👥</span>
-              <span className="life-metric-label">Social Life</span>
-            </div>
-            <div className="life-metric-bar">
-              <div
-                className={`life-metric-fill ${getStatusColor(social_life)}`}
-                style={{ width: `${social_life}%` }}
-              >
-                <span className="life-metric-value">{social_life}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="life-metric">
-            <div className="life-metric-header">
-              <span className="life-metric-icon">📚</span>
-              <span className="life-metric-label">Financial Knowledge</span>
-            </div>
-            <div className="life-metric-bar">
-              <div
-                className={`life-metric-fill ${getStatusColor(financial_knowledge)}`}
-                style={{ width: `${financial_knowledge}%` }}
-              >
-                <span className="life-metric-value">{financial_knowledge}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Assets Display */}
-      {assets && Object.keys(assets).length > 0 && (
-        <div className="assets-section">
-          <h3>📦 Your Assets</h3>
-          <div className="assets-grid">
-            {Object.entries(assets).map(([key, value]) => {
-              // Get icon based on asset type
-              const getAssetIcon = (key) => {
-                if (key.includes('car') || key.includes('vehicle')) return '🚗';
-                if (key.includes('house') || key.includes('housing')) return '🏠';
-                if (key.includes('pet')) return '🐕';
-                if (key.includes('bike')) return '🚲';
-                return '📦';
-              };
-
-              // Format value nicely
-              const formatValue = (value) => {
-                if (typeof value === 'boolean') return value ? '✓ Owned' : '✗ Not owned';
-                if (typeof value === 'object') {
-                  const details = [];
-                  if (value.type) details.push(`Type: ${value.type.replace(/_/g, ' ')}`);
-                  if (value.value) details.push(`Value: €${value.value}`);
-                  if (value.name) details.push(`Name: ${value.name}`);
-                  return details.join(', ');
-                }
-                return value;
-              };
-
-              return (
-                <div key={key} className="asset-card">
-                  <div className="asset-icon">{getAssetIcon(key)}</div>
-                  <div className="asset-info">
-                    <div className="asset-name">{key.replace(/_/g, ' ').toUpperCase()}</div>
-                    <div className="asset-details">{formatValue(value)}</div>
-                  </div>
+                    return (
+                      <div key={key} className="asset-card">
+                        <div className="asset-icon">{getAssetIcon(key)}</div>
+                        <div className="asset-info">
+                          <div className="asset-name">{key.replace(/_/g, ' ').toUpperCase()}</div>
+                          <div className="asset-details">{formatValue(value)}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Action Button */}
-      {game_status === "active" && (
-        <div className="action-section">
-          <button className="btn-action" onClick={onMakeDecision}>
-            Continue Your Journey →
-          </button>
-        </div>
-      )}
-
-      {game_status === "completed" && (
-        <div className="completion-message">
-          <h2>🎉 Congratulations!</h2>
-          <p>You've completed your journey to financial independence!</p>
-        </div>
-      )}
-    </div>
+      </div>
     );
   }
 

@@ -139,13 +139,6 @@ const GamePage = () => {
             currentMonthsPassed={playerState.months_passed}
             currentMonthPhase={playerState.month_phase}
           />
-          <div className="fi-score-container">
-            <SceneView
-              gameState={playerState}
-              onMakeDecision={handleMakeDecision}
-              isCompact={true}
-            />
-          </div>
         </div>
         <SceneView
           gameState={playerState}
