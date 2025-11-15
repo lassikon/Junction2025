@@ -17,7 +17,8 @@ from models import (
     OnboardingRequest, GameStateResponse, OnboardingResponse, GameStatus,
     DecisionRequest, DecisionResponse, ChatRequest, ChatResponse,
     ChatHistoryResponse, ChatMessageResponse, ChatRole, ChatSession, ChatMessage,
-    LifeMetricsChanges, TransactionSummary, MonthlyCashFlowSummary
+    LifeMetricsChanges, TransactionSummary, MonthlyCashFlowSummary,
+    UpdateExpensesRequest, UpdateExpensesResponse
 )
 from utils import initialize_game_state, generate_session_id, calculate_fi_score
 from game_engine import (
@@ -810,7 +811,12 @@ async def create_player(
             account.default_education_path = request.education_path.value
             account.default_risk_attitude = request.risk_attitude.value
             account.default_monthly_income = request.monthly_income
-            account.default_monthly_expenses = request.monthly_expenses
+            # Calculate total expenses from individual categories
+            total_expenses = (request.expense_housing + request.expense_food + 
+                            request.expense_transport + request.expense_utilities + 
+                            request.expense_insurance + request.expense_subscriptions + 
+                            request.expense_other)
+            account.default_monthly_expenses = total_expenses
             account.default_starting_savings = request.starting_savings
             account.default_starting_debt = request.starting_debt
             account.default_aspirations = request.aspirations
@@ -818,9 +824,19 @@ async def create_player(
             print(
                 f"✅ Saved onboarding defaults for account: {account.username}")
 
-        # Initialize game state
+        # Initialize game state with individual expense categories
         initial_state = initialize_game_state(
-            profile, request.monthly_income, request.monthly_expenses)
+            profile, 
+            request.monthly_income,
+            request.expense_housing,
+            request.expense_food,
+            request.expense_transport,
+            request.expense_utilities,
+            request.expense_insurance,
+            request.expense_subscriptions,
+            request.expense_other,
+            request.active_subscriptions
+        )
         game_state = GameState(
             profile_id=profile.id,
             **initial_state
@@ -865,6 +881,14 @@ async def create_player(
             money=game_state.money,
             monthly_income=game_state.monthly_income,
             monthly_expenses=game_state.monthly_expenses,
+            expense_housing=game_state.expense_housing,
+            expense_food=game_state.expense_food,
+            expense_transport=game_state.expense_transport,
+            expense_utilities=game_state.expense_utilities,
+            expense_subscriptions=game_state.expense_subscriptions,
+            expense_insurance=game_state.expense_insurance,
+            expense_other=game_state.expense_other,
+            active_subscriptions=game_state.active_subscriptions,
             investments=game_state.investments,
             passive_income=game_state.passive_income,
             debts=game_state.debts,
@@ -934,6 +958,14 @@ async def get_game_state(
             money=game_state.money,
             monthly_income=game_state.monthly_income,
             monthly_expenses=game_state.monthly_expenses,
+            expense_housing=game_state.expense_housing,
+            expense_food=game_state.expense_food,
+            expense_transport=game_state.expense_transport,
+            expense_utilities=game_state.expense_utilities,
+            expense_subscriptions=game_state.expense_subscriptions,
+            expense_insurance=game_state.expense_insurance,
+            expense_other=game_state.expense_other,
+            active_subscriptions=game_state.active_subscriptions,
             investments=game_state.investments,
             passive_income=game_state.passive_income,
             debts=game_state.debts,
@@ -951,6 +983,154 @@ async def get_game_state(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error retrieving game state: {str(e)}")
+
+
+@app.put("/api/expenses/{session_id}", response_model=UpdateExpensesResponse, tags=["Game"])
+async def update_expenses(
+    session_id: str,
+    request: UpdateExpensesRequest,
+    db_session: AsyncSession = Depends(get_session)
+):
+    """
+    Update player expenses by removing optional expenses
+    
+    Remove optional expenses (subscriptions, lifestyle choices) and apply
+    the corresponding stat changes (motivation, energy, social_life penalties).
+    
+    **Parameters:**
+    - **session_id**: Player's unique session identifier
+    - **removed_expense_ids**: List of expense IDs to remove (netflix, spotify, gym, dining, hobbies)
+    - **stat_adjustments**: Dictionary of stat changes (e.g., {"motivation": -8})
+    
+    **Returns:** Updated game state with expense savings and stat changes
+    """
+    try:
+        # Find the profile
+        result = await db_session.execute(
+            select(PlayerProfile).where(PlayerProfile.session_id == session_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get game state
+        result = await db_session.execute(
+            select(GameState).where(GameState.profile_id == profile.id)
+        )
+        game_state = result.scalar_one_or_none()
+
+        if not game_state:
+            raise HTTPException(status_code=404, detail="Game state not found")
+
+        # Define optional expense amounts (these match frontend ExpensesBreakdown.js)
+        # Note: stat values show per-step benefits (applied every turn you have the subscription)
+        optional_expense_items = {
+            'netflix': {'amount': 15, 'motivation': 1},
+            'spotify': {'amount': 10, 'motivation': 1},
+            'gym': {'amount': 40, 'energy': 2, 'motivation': 1},
+            'dining': {'amount': 200, 'social_life': 2},
+            'hobbies': {'amount': 100, 'motivation': 2},
+        }
+
+        # Calculate total expense savings and stat changes
+        total_savings = 0.0
+        actual_stat_changes = {}
+
+        # Get current active subscriptions (initialize if None)
+        if game_state.active_subscriptions is None:
+            game_state.active_subscriptions = {}
+
+        # Create a new dict to ensure SQLAlchemy detects the change
+        updated_subscriptions = dict(game_state.active_subscriptions)
+
+        for expense_id in request.removed_expense_ids:
+            if expense_id in optional_expense_items:
+                expense = optional_expense_items[expense_id]
+                total_savings += expense['amount']
+                
+                # Remove from active subscriptions
+                if expense_id in updated_subscriptions:
+                    del updated_subscriptions[expense_id]
+                
+                # Apply stat penalties (negative values since we're removing something beneficial)
+                if 'motivation' in expense:
+                    actual_stat_changes['motivation'] = actual_stat_changes.get('motivation', 0) - expense['motivation']
+                if 'energy' in expense:
+                    actual_stat_changes['energy'] = actual_stat_changes.get('energy', 0) - expense['energy']
+                if 'social_life' in expense:
+                    actual_stat_changes['social_life'] = actual_stat_changes.get('social_life', 0) - expense['social_life']
+
+        # Assign the new dict back to trigger SQLAlchemy change detection
+        game_state.active_subscriptions = updated_subscriptions
+
+        # Update game state - reduce subscription expenses
+        game_state.expense_subscriptions = max(0, game_state.expense_subscriptions - total_savings)
+        
+        # Recalculate total monthly expenses
+        game_state.monthly_expenses = (
+            game_state.expense_housing +
+            game_state.expense_food +
+            game_state.expense_transport +
+            game_state.expense_utilities +
+            game_state.expense_subscriptions +
+            game_state.expense_insurance +
+            game_state.expense_other
+        )
+
+        # Apply stat changes (with bounds checking)
+        if 'motivation' in actual_stat_changes:
+            game_state.motivation = max(0, min(100, game_state.motivation + actual_stat_changes['motivation']))
+        if 'energy' in actual_stat_changes:
+            game_state.energy = max(0, min(100, game_state.energy + actual_stat_changes['energy']))
+        if 'social_life' in actual_stat_changes:
+            game_state.social_life = max(0, min(100, game_state.social_life + actual_stat_changes['social_life']))
+
+        # Commit changes to database
+        await db_session.commit()
+        await db_session.refresh(game_state)
+
+        # Return updated game state
+        updated_game_state = GameStateResponse(
+            session_id=session_id,
+            current_step=game_state.current_step,
+            current_age=game_state.current_age,
+            years_passed=game_state.years_passed,
+            money=game_state.money,
+            monthly_income=game_state.monthly_income,
+            monthly_expenses=game_state.monthly_expenses,
+            expense_housing=game_state.expense_housing,
+            expense_food=game_state.expense_food,
+            expense_transport=game_state.expense_transport,
+            expense_utilities=game_state.expense_utilities,
+            expense_subscriptions=game_state.expense_subscriptions,
+            expense_insurance=game_state.expense_insurance,
+            expense_other=game_state.expense_other,
+            active_subscriptions=game_state.active_subscriptions,
+            investments=game_state.investments,
+            passive_income=game_state.passive_income,
+            debts=game_state.debts,
+            fi_score=game_state.fi_score,
+            energy=game_state.energy,
+            motivation=game_state.motivation,
+            social_life=game_state.social_life,
+            financial_knowledge=game_state.financial_knowledge,
+            assets=game_state.assets,
+            game_status=game_state.game_status
+        )
+
+        return UpdateExpensesResponse(
+            game_state=updated_game_state,
+            expense_savings=total_savings,
+            stat_changes=actual_stat_changes
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db_session.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Error updating expenses: {str(e)}")
 
 
 @app.get("/api/transactions/{session_id}", response_model=List[dict], tags=["Game"])
@@ -1520,6 +1700,7 @@ async def process_decision(
             expense_subscriptions=game_state.expense_subscriptions,
             expense_insurance=game_state.expense_insurance,
             expense_other=game_state.expense_other,
+            active_subscriptions=game_state.active_subscriptions,
             investments=game_state.investments,
             passive_income=game_state.passive_income,
             debts=game_state.debts,

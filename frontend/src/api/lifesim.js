@@ -158,6 +158,70 @@ export function useNextQuestion(sessionId, enabled = false) {
 }
 
 // ===================================
+// MUTATION: Update Expenses
+// ===================================
+/**
+ * Update player expenses by removing optional expenses
+ * @returns {UseMutationResult} - Mutation result for updating expenses
+ */
+export function useUpdateExpenses() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ sessionId, removedExpenses, statAdjustments }) => {
+      const response = await axios.put(
+        `${API_URL}/api/expenses/${sessionId}`,
+        {
+          removed_expense_ids: removedExpenses,
+          stat_adjustments: statAdjustments,
+        }
+      );
+      return response.data;
+    },
+    onMutate: async ({ sessionId, removedExpenses }) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries(["playerState", sessionId]);
+
+      // Snapshot the previous value
+      const previousState = queryClient.getQueryData(["playerState", sessionId]);
+
+      // Optimistically update the cache
+      if (previousState) {
+        queryClient.setQueryData(["playerState", sessionId], (old) => {
+          if (!old) return old;
+          
+          // Create a new active_subscriptions object without the removed items
+          const newActiveSubscriptions = { ...old.active_subscriptions };
+          removedExpenses.forEach(expenseId => {
+            delete newActiveSubscriptions[expenseId];
+          });
+
+          return {
+            ...old,
+            active_subscriptions: newActiveSubscriptions,
+          };
+        });
+      }
+
+      // Return context for rollback on error
+      return { previousState };
+    },
+    onSuccess: (data, variables) => {
+      // Update with the actual backend response
+      queryClient.setQueryData(["playerState", variables.sessionId], data.game_state);
+      console.log("✅ Expenses updated successfully");
+    },
+    onError: (error, variables, context) => {
+      // Rollback to previous state on error
+      if (context?.previousState) {
+        queryClient.setQueryData(["playerState", variables.sessionId], context.previousState);
+      }
+      console.error("❌ Failed to update expenses:", error);
+    },
+  });
+}
+
+// ===================================
 // QUERY: Get Leaderboard
 // ===================================
 /**

@@ -184,6 +184,52 @@ def apply_monthly_cash_flow(state: GameState) -> Dict:
     }
 
 
+def apply_subscription_benefits(state: GameState) -> Dict:
+    """
+    Apply recurring benefits from active subscriptions each step.
+    
+    Args:
+        state: Current game state
+        
+    Returns:
+        Dictionary with applied benefits for logging
+    """
+    # Define subscription benefits (per step/turn)
+    SUBSCRIPTION_BENEFITS = {
+        'netflix': {'motivation': 1},  # Small entertainment boost
+        'spotify': {'motivation': 1},  # Small entertainment boost
+        'gym': {'energy': 2, 'motivation': 1},  # Physical fitness
+        'dining': {'social_life': 2},  # Social connections
+        'hobbies': {'motivation': 2},  # Personal fulfillment
+    }
+    
+    if not state.active_subscriptions:
+        return {}
+    
+    applied_benefits = {}
+    
+    for sub_id, is_active in state.active_subscriptions.items():
+        if is_active and sub_id in SUBSCRIPTION_BENEFITS:
+            benefits = SUBSCRIPTION_BENEFITS[sub_id]
+            
+            # Apply motivation benefits
+            if 'motivation' in benefits:
+                state.motivation = update_metric(state.motivation, benefits['motivation'])
+                applied_benefits['motivation'] = applied_benefits.get('motivation', 0) + benefits['motivation']
+            
+            # Apply energy benefits
+            if 'energy' in benefits:
+                state.energy = update_metric(state.energy, benefits['energy'])
+                applied_benefits['energy'] = applied_benefits.get('energy', 0) + benefits['energy']
+            
+            # Apply social_life benefits
+            if 'social_life' in benefits:
+                state.social_life = update_metric(state.social_life, benefits['social_life'])
+                applied_benefits['social_life'] = applied_benefits.get('social_life', 0) + benefits['social_life']
+    
+    return applied_benefits
+
+
 def apply_decision_effects(state: GameState, effect: DecisionEffect) -> Dict:
     """
     Apply decision effects to game state and return transaction summary.
@@ -309,6 +355,11 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> Dict:
     state.social_life = update_metric(state.social_life, effect.social_change)
     state.financial_knowledge = update_metric(
         state.financial_knowledge, effect.knowledge_change)
+
+    # Apply recurring benefits from active subscriptions
+    subscription_benefits = apply_subscription_benefits(state)
+    if subscription_benefits:
+        print(f"✨ Subscription benefits applied: {subscription_benefits}")
 
     # Update assets
     for key, value in effect.asset_updates.items():
