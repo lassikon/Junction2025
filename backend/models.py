@@ -66,8 +66,10 @@ class Account(SQLModel, table=True):
     # Persistent onboarding data (saved so they don't re-do onboarding each game)
     default_age: Optional[int] = None
     default_city: Optional[str] = None
-    default_education_path: Optional[str] = None  # Store as string to avoid enum issues
-    default_risk_attitude: Optional[str] = None  # Store as string to avoid enum issues
+    # Store as string to avoid enum issues
+    default_education_path: Optional[str] = None
+    # Store as string to avoid enum issues
+    default_risk_attitude: Optional[str] = None
     default_monthly_income: Optional[float] = None
     default_monthly_expenses: Optional[float] = None
     default_starting_savings: Optional[float] = None
@@ -75,8 +77,10 @@ class Account(SQLModel, table=True):
     default_aspirations: dict = Field(default={}, sa_column=Column(JSON))
 
     # Relationships
-    game_sessions: List["PlayerProfile"] = Relationship(back_populates="account")
-    session_tokens: List["SessionToken"] = Relationship(back_populates="account")
+    game_sessions: List["PlayerProfile"] = Relationship(
+        back_populates="account")
+    session_tokens: List["SessionToken"] = Relationship(
+        back_populates="account")
 
 
 # Session Token Model
@@ -115,8 +119,10 @@ class PlayerProfile(SQLModel, table=True):
     player_name: str = Field(max_length=100)
 
     # Account linkage (nullable for test mode/guest players)
-    account_id: Optional[int] = Field(default=None, foreign_key="accounts.id", index=True)
-    is_test_mode: bool = Field(default=False)  # True if playing as guest (not saved to leaderboard)
+    account_id: Optional[int] = Field(
+        default=None, foreign_key="accounts.id", index=True)
+    # True if playing as guest (not saved to leaderboard)
+    is_test_mode: bool = Field(default=False)
 
     # Onboarding data
     age: int = Field(ge=15, le=35)
@@ -299,8 +305,10 @@ class LeaderboardEntry(SQLModel, table=True):
     session_id: str = Field(index=True)
 
     # Account linkage (nullable for test mode)
-    account_id: Optional[int] = Field(default=None, foreign_key="accounts.id", index=True)
-    is_test_mode: bool = Field(default=False)  # Don't show test mode plays on leaderboard
+    account_id: Optional[int] = Field(
+        default=None, foreign_key="accounts.id", index=True)
+    # Don't show test mode plays on leaderboard
+    is_test_mode: bool = Field(default=False)
 
     # Player info
     player_name: str
@@ -356,7 +364,8 @@ class ChatSession(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    player_profile: PlayerProfile = Relationship(back_populates="chat_sessions")
+    player_profile: PlayerProfile = Relationship(
+        back_populates="chat_sessions")
     messages: List["ChatMessage"] = Relationship(
         back_populates="chat_session",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
@@ -489,6 +498,8 @@ class DecisionResponse(SQLModel):
     next_options: List[Dict] = []
     learning_moment: Optional[str] = None
     transaction_summary: Optional["TransactionSummary"] = None
+    # Monthly income/expenses as transaction
+    monthly_flow_transaction: Optional["TransactionSummary"] = None
     monthly_cash_flow: Optional["MonthlyCashFlowSummary"] = None
     life_metrics_changes: Optional["LifeMetricsChanges"] = None
 
