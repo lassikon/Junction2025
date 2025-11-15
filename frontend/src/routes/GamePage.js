@@ -17,6 +17,7 @@ import "../styles/GamePage.css";
  */
 const GamePage = () => {
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const [showRecentChanges, setShowRecentChanges] = useState(true);
   const [monthlyCashFlow, setMonthlyCashFlow] = useState(null);
   const [lifeMetricsChanges, setLifeMetricsChanges] = useState(null);
   const [fetchNextQuestion, setFetchNextQuestion] = useState(false);
@@ -155,19 +156,23 @@ const GamePage = () => {
       {/* Main Game Content */}
       <div className="game-content">
         <MetricsBar gameState={playerState} />
-        <div className="split-layout">
-          <TransactionLog 
-            transactions={transactionHistory} 
-            currentMonthsPassed={playerState.months_passed}
-            currentMonthPhase={playerState.month_phase}
-          />
-        </div>
         <SceneView
           gameState={playerState}
           onMakeDecision={handleMakeDecision}
           showOnlyBottom={true}
         />
       </div>
+
+      {/* Floating Recent Changes Panel */}
+      {showRecentChanges && (
+        <div className="floating-recent-changes-panel">
+          <TransactionLog 
+            transactions={transactionHistory} 
+            currentMonthsPassed={playerState.months_passed}
+            currentMonthPhase={playerState.month_phase}
+          />
+        </div>
+      )}
 
       {/* Decision Modal */}
       {showDecisionModal && !showConsequenceModal && (
@@ -199,12 +204,26 @@ const GamePage = () => {
         />
       )}
 
-      {/* Floating Financial Advisor Chatbot */}
+      {/* Floating Buttons */}
       <FloatingChatbot
         sessionId={sessionId}
         isOpen={showChatbot}
         onToggle={toggleChatbot}
+        currentNarrative={currentNarrative}
+        currentOptions={currentOptions}
       />
+
+      {/* Floating Recent Changes Toggle Button */}
+      <button 
+        className={`floating-transaction-btn ${showRecentChanges ? 'active' : ''}`}
+        onClick={() => setShowRecentChanges(!showRecentChanges)}
+        aria-label="Toggle recent changes"
+      >
+        📊
+        <span className="transaction-btn-label">
+          {showRecentChanges ? 'Hide' : 'Show'} Recent Changes
+        </span>
+      </button>
     </div>
   );
 };

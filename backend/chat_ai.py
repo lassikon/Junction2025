@@ -196,7 +196,8 @@ def build_chat_prompt(
 - Explain financial concepts in simple terms
 - Be encouraging and supportive
 - Reference the player's current situation
-- Keep responses concise (2-3 paragraphs maximum)
+- Keep responses VERY SHORT: maximum 3-4 sentences or 60 words
+- Get straight to the point - no lengthy explanations
 
 PLAYER'S CURRENT SITUATION:
 - Name: {profile.player_name}
@@ -225,7 +226,7 @@ LIFE METRICS:
 USER'S QUESTION:
 {user_message}
 
-RESPONSE (be helpful, specific, and encouraging):"""
+RESPONSE (be helpful, specific, encouraging, and BRIEF - max 3-4 sentences):"""
     
     return prompt
 
