@@ -34,6 +34,17 @@
   height: 50px;
 }
 
+/* Overlay that appears behind the chatbot when open to capture outside clicks */
+.chatbot-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.0); /* transparent but captures clicks */
+  z-index: 1000;
+}
+
 .chatbot-label {
   position: absolute;
   right: 70px;

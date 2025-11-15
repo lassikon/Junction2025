@@ -55,6 +55,17 @@ const FloatingChatbot = ({ sessionId, isOpen, onToggle, currentNarrative, curren
     };
   }, []);
 
+  // Close on Escape key when open
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onToggle();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onToggle]);
+
   // Typewriter effect function
   const typewriterEffect = (text, callback) => {
     setIsTyping(true);
@@ -160,7 +171,11 @@ const FloatingChatbot = ({ sessionId, isOpen, onToggle, currentNarrative, curren
 
       {/* Chatbot Window - Shows when open */}
       {isOpen && (
-        <div className="chatbot-container">
+        <>
+          {/* Fullscreen overlay to capture outside clicks and close the chat */}
+          <div className="chatbot-overlay" onClick={onToggle} />
+
+          <div className="chatbot-container" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="chatbot-header">
             <div className="chatbot-header-content">
@@ -228,6 +243,7 @@ const FloatingChatbot = ({ sessionId, isOpen, onToggle, currentNarrative, curren
             </button>
           </form>
         </div>
+        </>
       )}
     </>
   );
