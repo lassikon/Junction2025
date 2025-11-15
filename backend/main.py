@@ -1184,7 +1184,6 @@ async def get_decision_history(
 
 
 @app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
-@app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 async def process_decision(
     request: DecisionRequest,
     db_session: AsyncSession = Depends(get_session)
