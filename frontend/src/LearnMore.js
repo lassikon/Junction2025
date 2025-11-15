@@ -1,15 +1,14 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import './LearnMore.css';
 
-function LearnMore() {
-  const navigate = useNavigate();
-
+function LearnMore({ onClose }) {
   return (
     <div className="learn-container">
       <header className="learn-header">
-        <h1>About Junction Finance</h1>
-        <p className="subtitle">Learning financial control through a fun, safe game for teens & young adults</p>
+        <div>
+            <h1>About Junction Finance</h1>
+            <p className="subtitle">Building money-management skills and preparing for real-life financial challenges through a fun, safe game for teens and young adults</p>
+        </div>
       </header>
 
       <main className="learn-main">
@@ -44,18 +43,18 @@ function LearnMore() {
         <section className="learn-section">
           <h2>Chatbot</h2>
           <p>
-            We have also added a chatbot to our website to help users with any questions they may have about personal finance. 
-            The chatbot is powered by OpenAI's GPT-3.5-turbo model, which allows it to provide accurate and helpful responses to a wide range of financial topics.
+          We have also added an AI-powered chatbot to the web app to help users with questions about personal finance and in-game choices.
+          The chatbot is powered by Google Gemini, which allows it to provide helpful, up-to-date responses across a wide range of financial topics.
           </p>
         </section>
 
-        <div className="learn-cta">
-          <button className="btn btn-primary" onClick={() => navigate('/chat')}>
-            Start Chatting
-          </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/')}>
-            Back to Home
-          </button>
+        {/* Close button at bottom for convenience */}
+        <div className="learn-cta" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          {onClose && (
+            <button className="btn btn-secondary" onClick={onClose}>
+              Close
+            </button>
+          )}
         </div>
       </main>
     </div>
