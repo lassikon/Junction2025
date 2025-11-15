@@ -1,0 +1,617 @@
+/* ===================================
+   GAME PAGE CONTAINER & LAYOUT
+   =================================== */
+
+.game-page-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  display: flex;
+  flex-direction: column;
+}
+
+.game-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  display: flex;
+  flex-direction: column;
+}
+
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-size: 1.2rem;
+  color: #6b7280;
+}
+
+.game-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  gap: 1rem;
+}
+
+.game-top-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.game-time-display {
+  background: white;
+  padding: 0.75rem 2rem;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.time-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.turn-label {
+  font-size: 0.95rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.game-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1.5rem;
+}
+
+.game-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.metrics-container {
+  animation: slideUp 0.3s ease;
+}
+
+.game-right {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .game-main {
+    grid-template-columns: 1fr;
+  }
+
+  .game-left {
+    order: 1;
+  }
+
+  .game-right {
+    order: 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .game-content {
+    padding: 1rem;
+  }
+
+  .game-time-display {
+    padding: 0.5rem 1rem;
+    gap: 1rem;
+    flex-direction: column;
+  }
+
+  .time-label {
+    font-size: 1rem;
+  }
+
+  .turn-label {
+    font-size: 0.85rem;
+  }
+
+  .game-right {
+    padding: 1rem;
+  }
+}
+
+/* ===================================
+   API STATUS BAR
+   =================================== */
+
+.game-page-api-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.game-page-status {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.game-page-status-connected {
+  background: rgba(72, 187, 120, 0.15);
+  color: #22543d;
+  border: 1px solid rgba(72, 187, 120, 0.3);
+}
+
+.game-page-status-disconnected {
+  background: rgba(245, 101, 101, 0.15);
+  color: #742a2a;
+  border: 1px solid rgba(245, 101, 101, 0.3);
+}
+
+.game-page-btn-new-game {
+  padding: 0.5rem 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.game-page-btn-new-game:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.game-page-btn-new-game:active {
+  transform: translateY(0);
+}
+
+/* ===================================
+   ERROR BANNER
+   =================================== */
+
+.game-page-error-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: #fed7d7;
+  color: #742a2a;
+  border-left: 4px solid #fc8181;
+  margin: 0.5rem 1rem;
+  border-radius: 8px;
+  animation: slideDown 0.3s ease;
+}
+
+.game-page-error-banner p {
+  margin: 0;
+  flex: 1;
+  font-weight: 500;
+}
+
+.game-page-error-banner button {
+  background: none;
+  border: none;
+  color: #742a2a;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 0.5rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.game-page-error-banner button:hover {
+  opacity: 1;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===================================
+   LOADING OVERLAY
+   =================================== */
+
+.game-page-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+.game-page-loading-spinner {
+  background: white;
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  animation: pulse 1.5s ease infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ===================================
+   MAKE DECISION BUTTON
+   =================================== */
+
+.game-page-btn-make-decision {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  margin-left: 1rem;
+}
+
+.game-page-btn-make-decision:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+}
+
+.game-page-btn-make-decision:active {
+  transform: translateY(0);
+}
+
+.status-label {
+  padding: 0.25rem 0.75rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  font-size: 0.875rem;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+/* ===================================
+   FINANCIAL SUMMARY
+   =================================== */
+
+.game-page-financial-summary {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.game-page-financial-summary h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.game-page-financial-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.game-page-financial-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.game-page-financial-item:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.game-page-label {
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.game-page-value {
+  font-weight: 700;
+  color: #10b981;
+  font-size: 1rem;
+}
+
+.game-page-debt {
+  color: #ef4444 !important;
+}
+
+/* ===================================
+   MODAL STYLES
+   =================================== */
+
+.game-page-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+  padding: 1rem;
+}
+
+.game-page-modal-content {
+  background: white;
+  border-radius: 16px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  position: relative;
+  animation: slideUpModal 0.3s ease;
+}
+
+@keyframes slideUpModal {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.game-page-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: #6b7280;
+}
+
+.game-page-modal-close:hover {
+  background: rgba(0, 0, 0, 0.2);
+  color: #1f2937;
+  transform: rotate(90deg);
+}
+
+/* ===================================
+   NARRATIVE SECTION
+   =================================== */
+
+.game-page-narrative-section {
+  padding: 2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.game-page-narrative-section h2 {
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.game-page-narrative-text {
+  line-height: 1.7;
+  color: #4b5563;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+/* ===================================
+   OPTIONS SECTION
+   =================================== */
+
+.game-page-options-section {
+  padding: 2rem;
+}
+
+.game-page-options-section h3 {
+  margin: 0 0 1.5rem 0;
+  color: #1f2937;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.game-page-options-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.game-page-option-button {
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.game-page-option-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+}
+
+.game-page-option-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.game-page-option-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===================================
+   CONSEQUENCE SECTION
+   =================================== */
+
+.game-page-consequence-section {
+  padding: 2rem;
+}
+
+.game-page-consequence-section h2 {
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.game-page-consequence-text {
+  line-height: 1.7;
+  color: #4b5563;
+  font-size: 1.05rem;
+  margin: 0 0 1.5rem 0;
+}
+
+.game-page-learning-moment {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid #f59e0b;
+  margin: 1.5rem 0;
+}
+
+.game-page-learning-moment h3 {
+  margin: 0 0 0.75rem 0;
+  color: #92400e;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.game-page-learning-moment p {
+  margin: 0;
+  color: #78350f;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.game-page-btn-continue {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  margin-top: 1rem;
+}
+
+.game-page-btn-continue:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+}
+
+.game-page-btn-continue:active {
+  transform: translateY(0);
+}
+
+/* ===================================
+   RESPONSIVE MODAL STYLES
+   =================================== */
+
+@media (max-width: 768px) {
+  .game-page-modal-content {
+    max-width: 95%;
+    margin: 0 1rem;
+  }
+
+  .game-page-narrative-section,
+  .game-page-options-section,
+  .game-page-consequence-section {
+    padding: 1.5rem;
+  }
+
+  .game-page-financial-summary {
+    padding: 1rem;
+  }
+
+  .game-page-btn-make-decision {
+    font-size: 0.875rem;
+    padding: 0.625rem 1.25rem;
+  }
+}

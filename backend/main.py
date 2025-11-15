@@ -21,8 +21,10 @@ from game_engine import (
 )
 from ai_narrative import (
     generate_event_narrative, generate_consequence_narrative,
-    generate_learning_moment
+    generate_learning_moment, generate_option_texts
 )
+from rag_service import RAGService, get_rag_service
+import rag_service as rag_module
 
 load_dotenv()
 
@@ -36,6 +38,16 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting up LifeSim API...")
     await init_db()
+    
+    # Initialize RAG service
+    try:
+        rag_module.rag_service = RAGService(chroma_host="chromadb", chroma_port=8000)
+        print("✅ RAG Service initialized")
+    except Exception as e:
+        print(f"⚠️ RAG Service failed to initialize: {e}")
+        print("   Game will continue without RAG-enhanced learning moments")
+        rag_module.rag_service = None
+    
     yield
     # Shutdown
     print("👋 Shutting down LifeSim API...")
@@ -44,6 +56,36 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LifeSim: Financial Independence Quest API",
+    description="""
+    ## LifeSim Financial Independence Quest
+    
+    An interactive game that teaches financial literacy through life decisions.
+    
+    ### Features:
+    * **Onboarding**: Create personalized player profiles
+    * **Game Progression**: Navigate through life stages with financial decisions
+    * **Decision Making**: Make choices that impact your financial health
+    * **Leaderboard**: Compete with other players on Financial Independence Score
+    * **AI-Generated Narratives**: Dynamic storytelling powered by Gemini AI
+    
+    ### Game Flow:
+    1. Complete onboarding to set up your profile
+    2. Receive life events and make decisions
+    3. See consequences of your choices
+    4. Progress through life stages
+    5. Aim for financial independence!
+    """,
+    version="1.0.0",
+    contact={
+        "name": "Junction2025 Team",
+        "url": "https://github.com/lassikon/Junction2025",
+    },
+    license_info={
+        "name": "MIT",
+    },
+    docs_url="/docs",  # Swagger UI
+    redoc_url="/redoc",  # ReDoc alternative documentation
+    openapi_url="/openapi.json",  # OpenAPI schema
     lifespan=lifespan
 )
 
@@ -83,20 +125,28 @@ class ChatResponse(BaseModel):
     model: str
 
 
-@app.get("/")
+@app.get("/", tags=["System"])
 async def root():
+    """
+    Root endpoint - API welcome message
+    """
     return {"message": "AI Hackathon API is running!"}
 
 
-@app.get("/health")
+@app.get("/health", tags=["System"])
 async def health():
+    """
+    Health check endpoint - verify API is operational
+    """
     return {"status": "healthy"}
 
 
-@app.post("/api/chat", response_model=ChatResponse)
+@app.post("/api/chat", response_model=ChatResponse, tags=["AI"])
 async def chat(chat_message: ChatMessage, session: AsyncSession = Depends(get_session)):
     """
-    Basic chat endpoint - integrate with OpenAI, Anthropic, or other LLM providers
+    Chat with AI using Gemini models
+    
+    Send a message to the AI and receive a response powered by Google's Gemini.
     """
     try:
         if not GEMINI_API_KEY or not client:
@@ -137,10 +187,12 @@ async def chat(chat_message: ChatMessage, session: AsyncSession = Depends(get_se
             status_code=500, detail=f"Error generating response: {str(e)}")
 
 
-@app.get("/api/models")
+@app.get("/api/models", tags=["AI"])
 async def list_models():
     """
-    List available models
+    List available AI models
+    
+    Get a list of all available Gemini models that can be used for chat.
     """
     return {
         "models": [
@@ -157,15 +209,23 @@ async def list_models():
 # LifeSim Game Endpoints
 # =====================================================
 
-@app.post("/api/onboarding", response_model=OnboardingResponse)
+@app.post("/api/onboarding", response_model=OnboardingResponse, tags=["Game"])
 async def create_player(
     request: OnboardingRequest,
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Create a new player profile and initialize game state.
+    Create a new player profile and start the game
+    
     This is the first endpoint called when starting a new game.
-    Returns initial game state, narrative, and first set of options.
+    
+    **Process:**
+    1. Creates a player profile with provided information
+    2. Initializes game state with starting values
+    3. Generates the first life event and decision options
+    4. Returns session_id for subsequent API calls
+    
+    **Returns:** Initial game state with narrative and decision options
     """
     try:
         # Generate unique session ID
@@ -218,9 +278,21 @@ async def create_player(
 
         initial_options_data = create_decision_options(
             initial_event_type, game_state, None)
-        initial_options = [opt["text"] for opt in initial_options_data]
 
-        # Build game state response
+        # Generate option texts with AI
+        initial_options = generate_option_texts(
+            initial_options_data,
+            initial_event_type,
+            game_state,
+            profile,
+            client
+        )
+
+        # Store the generated texts back in the options data with indices
+        for i, opt in enumerate(initial_options_data):
+            opt["text"] = initial_options[i]
+            # Add index for reliable matching later        # Build game state response
+            opt["index"] = i
         game_state_response = GameStateResponse(
             session_id=session_id,
             current_step=game_state.current_step,
@@ -255,13 +327,21 @@ async def create_player(
             status_code=500, detail=f"Error creating player: {str(e)}")
 
 
-@app.get("/api/game/{session_id}", response_model=GameStateResponse)
+@app.get("/api/game/{session_id}", response_model=GameStateResponse, tags=["Game"])
 async def get_game_state(
     session_id: str,
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Get current game state for a session.
+    Get current game state for a session
+    
+    Retrieve the current financial status, life stage, and game progress
+    for an active game session.
+    
+    **Parameters:**
+    - **session_id**: Unique session identifier from onboarding
+    
+    **Returns:** Current game state with all financial metrics
     """
     try:
         # Find the profile
@@ -309,13 +389,20 @@ async def get_game_state(
             status_code=500, detail=f"Error retrieving game state: {str(e)}")
 
 
-@app.get("/api/leaderboard", response_model=List[dict])
+@app.get("/api/leaderboard", response_model=List[dict], tags=["Leaderboard"])
 async def get_leaderboard(
     limit: int = 10,
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Get top players from the leaderboard.
+    Get top players from the leaderboard
+    
+    Retrieve the highest-scoring players based on Financial Independence Score.
+    
+    **Parameters:**
+    - **limit**: Maximum number of players to return (default: 10)
+    
+    **Returns:** List of top players with their scores and achievements
     """
     try:
         result = await session.execute(
@@ -343,20 +430,29 @@ async def get_leaderboard(
             status_code=500, detail=f"Error retrieving leaderboard: {str(e)}")
 
 
-@app.post("/api/step", response_model=DecisionResponse)
+@app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 async def process_decision(
     request: DecisionRequest,
     db_session: AsyncSession = Depends(get_session)
 ):
     """
-    Process a player's decision and progress the game.
+    Process a player's decision and advance the game
+    
+    Main gameplay endpoint that processes decisions and progresses the story.
 
-    This endpoint:
+    **Process:**
     1. Retrieves current game state
-    2. Applies the chosen decision's effects
+    2. Applies the chosen decision's effects to finances and stats
     3. Records the decision in history
-    4. Generates the next event and options
-    5. Returns updated state and next narrative
+    4. Generates consequence narrative with AI
+    5. Creates the next event and decision options
+    6. Updates life stage if applicable
+    
+    **Parameters:**
+    - **session_id**: Current game session identifier
+    - **decision_index**: Index of the chosen decision option
+    
+    **Returns:** Updated game state, consequence narrative, and next decision options
     """
     try:
         # Get player profile and game state
@@ -393,19 +489,56 @@ async def process_decision(
         available_options = create_decision_options(
             current_event_type, game_state, curveball)
 
+        # Always generate option texts for recording in history
+        option_texts = generate_option_texts(
+            available_options,
+            current_event_type,
+            game_state,
+            profile,
+            client
+        )
+
+        # Store texts in options for history recording
+        for i, opt in enumerate(available_options):
+            opt["text"] = option_texts[i]
+
         # Find the chosen option
         chosen_option_data = None
-        for option in available_options:
-            if option["text"] == request.chosen_option:
-                chosen_option_data = option
-                break
+        chosen_index = -1
+
+        # If frontend sent an index, use it directly (most reliable)
+        if request.option_index is not None and 0 <= request.option_index < len(available_options):
+            chosen_option_data = available_options[request.option_index]
+            chosen_index = request.option_index
+        else:
+            # Fallback: try to match by text
+            # Try exact match with generated text
+            for i, text in enumerate(option_texts):
+                if text == request.chosen_option:
+                    chosen_option_data = available_options[i]
+                    chosen_index = i
+                    break
+
+            # If exact match fails, try fallback_text match
+            if not chosen_option_data:
+                for i, option in enumerate(available_options):
+                    if option.get("fallback_text", "") == request.chosen_option:
+                        chosen_option_data = option
+                        chosen_index = i
+                        break
 
         if not chosen_option_data:
+            print(f"❌ ERROR: Could not match option")
+            print(f"  Request option_index: {request.option_index}")
+            print(f"  Request chosen_option: {request.chosen_option}")
+            print(f"  Available options count: {len(available_options)}")
+            print(f"  Generated option texts: {option_texts}")
             raise HTTPException(
-                status_code=400, detail="Invalid option chosen")
+                status_code=400, detail=f"Invalid option chosen: {request.chosen_option}")
 
         # Store state before changes
         money_before = game_state.money
+        investments_before = game_state.investments
         fi_before = game_state.fi_score
         energy_before = game_state.energy
         motivation_before = game_state.motivation
@@ -414,7 +547,18 @@ async def process_decision(
 
         # Apply decision effects
         effect = setup_option_effect(chosen_option_data)
+
+        # Debug: Log effect details
+        print(f"💰 APPLYING EFFECTS:")
+        print(f"  Investment change: {effect.investment_change}")
+        print(f"  Money change: {effect.money_change}")
+        print(
+            f"  Before - Investments: {investments_before}, Money: {money_before}")
+
         apply_decision_effects(game_state, effect)
+
+        print(
+            f"  After - Investments: {game_state.investments}, Money: {game_state.money}")
 
         # Generate consequence narrative
         consequence = generate_consequence_narrative(
@@ -461,6 +605,24 @@ async def process_decision(
         await db_session.commit()
         await db_session.refresh(game_state)
 
+        # RAG-ENHANCED: Index this decision for future retrieval
+        try:
+            rag = get_rag_service()
+            rag.index_player_decision(
+                session_id=request.session_id,
+                step=step_number,
+                event_type=current_event_type,
+                chosen_option=request.chosen_option,
+                consequence=consequence,
+                fi_score=game_state.fi_score,
+                age=game_state.current_age,
+                education=profile.education_path
+            )
+            print(f"✅ Indexed decision for RAG (step {step_number})")
+        except Exception as e:
+            print(f"⚠️ Failed to index decision: {e}")
+            # Non-fatal error, continue game flow
+
         # Generate next event
         next_event_type = get_event_type(game_state, profile)
         next_curveball = None
@@ -479,7 +641,20 @@ async def process_decision(
         # Generate next options
         next_options_data = create_decision_options(
             next_event_type, game_state, next_curveball)
-        next_options = [opt["text"] for opt in next_options_data]
+
+        # Generate option texts with AI
+        next_options = generate_option_texts(
+            next_options_data,
+            next_event_type,
+            game_state,
+            profile,
+            client
+        )
+
+        # Store the generated texts back in the options data with indices
+        for i, opt in enumerate(next_options_data):
+            opt["text"] = next_options[i]
+            opt["index"] = i  # Add index for reliable matching later
 
         # Build updated state response
         updated_state = GameStateResponse(
@@ -501,6 +676,9 @@ async def process_decision(
             assets=game_state.assets,
             game_status=game_state.game_status
         )
+
+        print(
+            f"📤 RESPONSE - Investments being sent: {updated_state.investments}")
 
         return DecisionResponse(
             consequence_narrative=consequence,

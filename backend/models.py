@@ -268,6 +268,8 @@ class DecisionRequest(SQLModel):
     """Request model for making a decision"""
     session_id: str
     chosen_option: str
+    # Index of the chosen option for reliable matching
+    option_index: Optional[int] = None
 
 
 class DecisionResponse(SQLModel):

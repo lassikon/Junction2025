@@ -33,6 +33,7 @@ NARRATIVE_PROMPTS = load_prompt_template("narrative_prompt.json")
 CONSEQUENCE_PROMPTS = load_prompt_template("consequence_prompt.json")
 LEARNING_PROMPTS = load_prompt_template("learning_moment_prompt.json")
 FALLBACK_NARRATIVES = load_prompt_template("fallback_narratives.json")
+OPTIONS_PROMPTS = load_prompt_template("options_prompt.json")
 
 
 def get_ai_client():
@@ -156,7 +157,7 @@ def generate_learning_moment(
     client: Optional[genai.Client] = None
 ) -> Optional[str]:
     """
-    Generate an educational insight based on the decision.
+    Generate an educational insight based on the decision (RAG-enhanced).
 
     Args:
         chosen_option: The option chosen
@@ -167,33 +168,170 @@ def generate_learning_moment(
     Returns:
         Learning moment text or None
     """
-    # Only generate learning moments occasionally (30% chance)
-    import random
-    if random.random() > 0.3:
-        return None
-
-    if client is None:
-        client = get_ai_client()
-
-    if client is None:
-        return None
-
+    # RAG-ENHANCED: Retrieve relevant concepts instead of random chance
     try:
-        # Build prompt from template
-        prompt = f"""{LEARNING_PROMPTS['system_context']} {LEARNING_PROMPTS['template'].format(
-            chosen_option=chosen_option,
-            fi_score=state.fi_score,
-            money=state.money,
-            monthly_income=state.monthly_income,
-            investments=state.investments,
-            debts=state.debts,
-            financial_knowledge=state.financial_knowledge
-        )}
+        from rag_service import get_rag_service
+        rag = get_rag_service()
+        
+        # Build query from context
+        query = f"{chosen_option}. Age {state.current_age}, FI score {state.fi_score:.1f}%, financial knowledge {state.financial_knowledge}/100"
+        
+        # Retrieve relevant financial concepts
+        difficulty = "beginner" if state.financial_knowledge < 50 else "intermediate"
+        concepts = rag.retrieve_financial_concepts(
+            query=query,
+            difficulty_filter=difficulty,
+            top_k=2
+        )
+        
+        # Only generate if we found relevant concepts (score > 0.7)
+        if not concepts or concepts[0]['score'] < 0.7:
+            return None  # No relevant tip available
+        
+        if client is None:
+            client = get_ai_client()
+        
+        if client is None:
+            return None
+        
+        # Build enhanced prompt with retrieved context
+        prompt = f"""You are a friendly financial education coach. Provide a brief, practical tip.
+
+RETRIEVED FINANCIAL CONCEPT:
+{concepts[0]['content']}
+
+PLAYER CONTEXT:
+- Age: {state.current_age}
+- FI Score: {state.fi_score:.1f}%
+- Money: €{state.money:,.0f}
+- Investments: €{state.investments:,.0f}
+- Debts: €{state.debts:,.0f}
+- Income: €{state.monthly_income:,.0f}/month
+- Financial Knowledge: {state.financial_knowledge}/100
+
+RECENT DECISION:
+{chosen_option}
+
+Provide a 1-2 sentence tip related to the retrieved concept, tailored to their situation.
+Be encouraging and practical. Make it actionable."""
+
+        print("\n" + "="*80)
+        print("🤖 GEMINI API CALL - Learning Moment (RAG-Enhanced)")
+        print("="*80)
+        print(f"📚 Retrieved concept: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
+        print("PROMPT:")
+        print(prompt)
+        print("\n" + "-"*80)
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp",
+            contents=prompt
+        )
+
+        tip = response.text.strip()
+        print("RESPONSE:")
+        print(tip)
+        print("="*80 + "\n")
+        
+        return tip
+        
+    except Exception as e:
+        print(f"⚠️ RAG learning moment failed: {e}")
+        # Fallback to original 30% random logic
+        import random
+        if random.random() > 0.7:
+            return None
+        
+        if client is None:
+            client = get_ai_client()
+        
+        if client is None:
+            return None
+        
+        try:
+            # Original prompt without RAG
+            prompt = f"""{LEARNING_PROMPTS['system_context']} {LEARNING_PROMPTS['template'].format(
+                chosen_option=chosen_option,
+                fi_score=state.fi_score,
+                money=state.money,
+                monthly_income=state.monthly_income,
+                investments=state.investments,
+                debts=state.debts,
+                financial_knowledge=state.financial_knowledge
+            )}
 
 {LEARNING_PROMPTS['instruction']}"""
 
+            response = client.models.generate_content(
+                model="gemini-2.0-flash-exp",
+                contents=prompt
+            )
+            
+            return response.text.strip()
+            
+        except Exception as e2:
+            print(f"Learning moment generation failed: {e2}")
+            return None
+
+
+def generate_option_texts(
+    option_descriptions: List[Dict],
+    event_type: str,
+    state: GameState,
+    profile: PlayerProfile,
+    client: Optional[genai.Client] = None
+) -> List[str]:
+    """
+    Generate varied option texts using AI while keeping effects hardcoded.
+
+    Args:
+        option_descriptions: List of option metadata with explanations
+        event_type: Type of event
+        state: Current game state
+        profile: Player profile
+        client: Gemini client (optional)
+
+    Returns:
+        List of AI-generated option texts
+    """
+    if client is None:
+        client = get_ai_client()
+
+    # Fallback to default texts if no AI
+    if client is None:
+        return [opt.get("fallback_text", opt["explanation"]) for opt in option_descriptions]
+
+    try:
+        # Build prompt for option generation
+        options_context = "\n".join([
+            f"{i+1}. {opt['explanation']}"
+            for i, opt in enumerate(option_descriptions)
+        ])
+
+        # Build prompt from template
+        template_filled = OPTIONS_PROMPTS['template'].format(
+            age=profile.age,
+            city=profile.city,
+            education=profile.education_path.value,
+            risk_attitude=profile.risk_attitude.value,
+            money=state.money,
+            monthly_income=state.monthly_income,
+            monthly_expenses=state.monthly_expenses,
+            fi_score=state.fi_score,
+            event_type=event_type,
+            options_context=options_context
+        )
+
+        prompt = f"""{OPTIONS_PROMPTS['system_context']}
+
+{template_filled}
+
+{OPTIONS_PROMPTS['instruction']}
+
+{OPTIONS_PROMPTS['format_instruction']}"""
+
         print("\n" + "="*80)
-        print("🤖 GEMINI API CALL - Learning Moment")
+        print("🤖 GEMINI API CALL - Option Texts")
         print("="*80)
         print("PROMPT:")
         print(prompt)
@@ -208,11 +346,31 @@ def generate_learning_moment(
         print(response.text.strip())
         print("="*80 + "\n")
 
-        return response.text.strip()
+        # Parse the response
+        lines = response.text.strip().split('\n')
+        generated_options = []
+
+        for line in lines:
+            line = line.strip()
+            # Remove numbering (1., 2., etc.) and asterisks
+            if line and (line[0].isdigit() or line.startswith('*') or line.startswith('-')):
+                # Remove leading number and punctuation
+                cleaned = line.lstrip('0123456789.*- ').strip()
+                if cleaned:
+                    generated_options.append(cleaned)
+
+        # If we got the right number of options, use them
+        if len(generated_options) == len(option_descriptions):
+            return generated_options
+
+        # Otherwise fallback to explanations
+        print(
+            f"Warning: Generated {len(generated_options)} options but expected {len(option_descriptions)}, using fallbacks")
+        return [opt.get("fallback_text", opt["explanation"]) for opt in option_descriptions]
 
     except Exception as e:
-        print(f"Learning moment generation failed: {e}")
-        return None
+        print(f"Option text generation failed: {e}")
+        return [opt.get("fallback_text", opt["explanation"]) for opt in option_descriptions]
 
 
 def build_narrative_prompt(

@@ -27,18 +27,20 @@ const GamePage = () => {
     setNarrativeAndOptions,
   } = useGameStore();
 
-  const { data: playerState, isLoading: isLoadingPlayerState } = usePlayerState(sessionId);
+  const { data: playerState, isLoading: isLoadingPlayerState } =
+    usePlayerState(sessionId);
   const decisionMutation = useMakeDecision();
 
   const handleMakeDecision = () => {
     openDecisionModal();
   };
 
-  const handleChooseOption = async (chosenOption) => {
+  const handleChooseOption = async (chosenOption, optionIndex) => {
     try {
       const result = await decisionMutation.mutateAsync({
         sessionId,
         chosenOption,
+        optionIndex,
       });
 
       // Close decision modal
@@ -129,4 +131,3 @@ const GamePage = () => {
 };
 
 export default GamePage;
-

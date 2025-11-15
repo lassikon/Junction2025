@@ -1,0 +1,252 @@
+{
+  "concepts": [
+    {
+      "id": "emergency_fund_basics",
+      "title": "Emergency Fund Fundamentals",
+      "category": "saving",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24, 25],
+      "content": "An emergency fund is 3-6 months of living expenses saved in a readily accessible account. This protects you from unexpected costs like medical bills, car repairs, or job loss. Start small - even €500 can prevent going into debt. Keep it in a separate savings account, not mixed with spending money. In Finland, consider high-interest savings accounts from banks like Nordea or OP that still allow quick withdrawals. Young adults should aim for at least €1000-2000 as a starter fund."
+    },
+    {
+      "id": "compound_interest",
+      "title": "The Power of Compound Interest",
+      "category": "investing",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
+      "content": "Compound interest means earning returns on your returns. If you invest €1000 at 7% annual return, after 1 year you have €1070. Year 2, you earn 7% on €1070 = €1145. Over 30 years, that €1000 becomes €7612 without adding anything! Starting early is crucial - investing at 20 vs 30 can double your retirement savings. Index funds provide average 7-10% annual returns historically. Albert Einstein called compound interest 'the eighth wonder of the world'."
+    },
+    {
+      "id": "finnish_tax_system",
+      "title": "Finnish Income Tax Basics",
+      "category": "taxes",
+      "difficulty": "intermediate",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+      "content": "Finland uses progressive taxation. In 2025, income tax ranges from 12% to 56% depending on earnings. Municipal tax averages 20%. Capital gains (investment profits) are taxed at 30% up to €30,000, then 34%. Tax deductions include work-related expenses, union fees, and voluntary pension contributions. File taxes annually between March-May through Vero.fi. Most employees have taxes withheld automatically from paychecks. Young professionals earning €25,000-35,000 typically pay around 25-30% effective tax rate."
+    },
+    {
+      "id": "debt_avalanche_method",
+      "title": "Debt Avalanche Repayment Strategy",
+      "category": "debt",
+      "difficulty": "intermediate",
+      "age_relevance": [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+      "content": "Debt Avalanche: Pay minimum on all debts, put extra money toward the highest interest rate debt first. Mathematically optimal, saves most money in interest. Example: Credit card at 18% APR gets priority over student loan at 2%. Once highest-rate debt is paid, move to next highest. Can save thousands in interest over time. Requires discipline but maximizes savings."
+    },
+    {
+      "id": "debt_snowball_method",
+      "title": "Debt Snowball Repayment Strategy",
+      "category": "debt",
+      "difficulty": "beginner",
+      "age_relevance": [20, 21, 22, 23, 24, 25, 26, 27, 28],
+      "content": "Debt Snowball: Pay minimum on all debts, put extra money toward smallest debt first for psychological wins. When smallest debt is paid off, you get motivational boost and move to next smallest. Better for people who need quick victories. Works well if you have multiple small debts. Not mathematically optimal but psychologically effective. Choose based on your personality - snowball for motivation, avalanche for maximum savings."
+    },
+    {
+      "id": "50_30_20_budget",
+      "title": "50/30/20 Budgeting Rule",
+      "category": "budgeting",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24, 25],
+      "content": "A simple budgeting framework: 50% of income for needs (rent, food, utilities), 30% for wants (entertainment, hobbies, dining out), 20% for savings and debt repayment. Adjust based on your situation - if rent is expensive in Helsinki, you might do 60/20/20. Track spending for one month to see your current split, then adjust gradually. Apps like Nordea Wallet or OP-mobile help automate tracking. Realistic for most young professionals in Finland."
+    },
+    {
+      "id": "index_fund_investing",
+      "title": "Index Fund Investment Basics",
+      "category": "investing",
+      "difficulty": "intermediate",
+      "age_relevance": [22, 23, 24, 25, 26, 27, 28, 29, 30],
+      "content": "Index funds track market indices like S&P 500 or global stock markets. Low fees (0.1-0.5% vs 2%+ for active funds), broad diversification, historically 7-10% annual returns. Perfect for beginners - you own tiny pieces of hundreds of companies. In Finland, consider Nordnet or Nordea for index fund investing. Popular options: Vanguard Total World Stock, S&P 500 ETFs. Start with €50-100/month, invest consistently regardless of market conditions (dollar-cost averaging)."
+    },
+    {
+      "id": "kela_benefits",
+      "title": "Kela Social Security Benefits",
+      "category": "finnish_specifics",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24, 25],
+      "content": "Kela provides social security in Finland. Housing allowance (asumistuki) helps with rent - students and low-income workers can get €100-500/month. Study grant (opintotuki) for students covers basic living costs. Unemployment benefits (työttömyystuki) if you lose your job. Healthcare costs reimbursed through Kela card. Register at Kela.fi when you start working or studying. These benefits form safety net - use them! Not shameful, they're your rights as resident."
+    },
+    {
+      "id": "helsinki_cost_of_living",
+      "title": "Cost of Living in Helsinki",
+      "category": "finnish_specifics",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24],
+      "content": "Helsinki is expensive but manageable. Studio apartment €800-1200/month. Groceries €200-300/month if you cook. Public transport €60/month (monthly ticket). Eating out €12-15 for lunch, €30-50 for dinner. Entertainment budget €100-200/month. Total living costs: €1500-2000/month minimum. Oulu and Tampere are 20-30% cheaper. Living with roommates cuts rent by 40%. Shop at Lidl and Prisma for cheaper groceries."
+    },
+    {
+      "id": "student_loan_finland",
+      "title": "Finnish Student Loan Management",
+      "category": "debt",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24, 25],
+      "content": "Kela-guaranteed student loans have low interest (1-2% in 2025). Maximum €650/month while studying. Government pays interest during studies and grace period. Repayment starts 2 years after graduation, typically 15-20 years to repay. Monthly payments around €100-150 for average loan of €20,000. This is 'good debt' - prioritize high-interest debt (credit cards 15%+) first. Student loan interest is tax-deductible. Don't rush to pay off - invest extra money if returns > 1-2%."
+    },
+    {
+      "id": "work_life_balance_cost",
+      "title": "Financial Impact of Work-Life Balance",
+      "category": "life_planning",
+      "difficulty": "intermediate",
+      "age_relevance": [23, 24, 25, 26, 27, 28, 29, 30],
+      "content": "Overwork leads to burnout, healthcare costs, and reduced productivity. Finland values work-life balance - 37.5 hour workweek is standard. Overtime pays 50-100% extra but costs energy and health. Consider total compensation: salary, vacation days (minimum 25 in Finland), flexible hours, remote work. High salary but 60-hour weeks vs moderate salary with 37-hour weeks and hobbies - second often leads to better life satisfaction and financial stability. Burnout can cost you months of lost income."
+    },
+    {
+      "id": "credit_card_dangers",
+      "title": "Credit Card Debt Trap",
+      "category": "debt",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24],
+      "content": "Credit cards in Finland charge 15-20% APR - extremely expensive debt. €1000 credit card debt costs €150-200/year in interest if you only pay minimum. Compounds rapidly. ALWAYS pay full balance monthly if possible. If you can't, prioritize credit card payoff over almost everything else (except emergency fund starter of €500). Credit cards are useful for building credit and fraud protection, but treat them like debit cards - only spend what you have. One month of missed payments can snowball into years of debt."
+    },
+    {
+      "id": "first_apartment_costs",
+      "title": "Hidden Costs of First Apartment",
+      "category": "life_planning",
+      "difficulty": "beginner",
+      "age_relevance": [20, 21, 22, 23, 24, 25],
+      "content": "Moving costs beyond rent: security deposit (1-3 months rent), furniture €1000-3000, kitchen supplies €300-500, internet €30-50/month, electricity €30-80/month, water/heating (sometimes included), insurance €15-30/month, moving truck €100-300. First apartment realistically costs €3000-5000 upfront plus monthly expenses. Save for 6 months before moving out. Share apartment with roommates to cut costs 40-50%. Consider furnished apartments initially to reduce upfront costs."
+    },
+    {
+      "id": "pension_system_finland",
+      "title": "Finnish Pension System Basics",
+      "category": "finnish_specifics",
+      "difficulty": "intermediate",
+      "age_relevance": [25, 26, 27, 28, 29, 30],
+      "content": "TyEL pension is mandatory - employer pays 17-18% on top of your salary. You contribute ~7% from your gross salary. Pension accrues at 1.5% of salary annually (age 17-52), 1.7% (age 53-62), 1.5% (age 63-68). Target pension is 50-60% of final salary. Retirement age rising to 67-70 for young workers. Supplement with voluntary pension savings (tax-deductible) or index fund investing for better returns. Don't rely only on state pension - save additionally for comfortable retirement."
+    },
+    {
+      "id": "loss_aversion_bias",
+      "title": "Loss Aversion in Financial Decisions",
+      "category": "behavioral_finance",
+      "difficulty": "intermediate",
+      "age_relevance": [20, 21, 22, 23, 24, 25, 26, 27, 28],
+      "content": "Loss aversion: humans feel losses 2x more intensely than equivalent gains. Losing €100 hurts more than winning €100 feels good. This causes poor financial decisions: holding losing stocks too long hoping to break even, avoiding calculated risks, keeping money in 0% savings vs investing for 7% returns out of fear. Recognize this bias. Focus on long-term strategy, not daily fluctuations. If investment thesis is sound, short-term losses are expected and okay. Don't let fear of small losses prevent big gains."
+    },
+    {
+      "id": "fomo_spending",
+      "title": "FOMO and Social Spending",
+      "category": "behavioral_finance",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24, 25],
+      "content": "Fear of missing out drives overspending on social events, travel, material goods. Instagram/TikTok amplify this - everyone appears to live luxuriously. Reality: they're often in debt or have wealthy parents. €50 restaurant meal weekly = €2600/year (could be €10,000+ invested over 4 years). Learn to say no. Suggest cheaper alternatives: home dinners, free events, hiking instead of expensive clubs. Real friends understand budget constraints. FOMO spending at 20-25 can cost you financial independence at 40."
+    },
+    {
+      "id": "delayed_gratification",
+      "title": "Delayed Gratification for Wealth Building",
+      "category": "behavioral_finance",
+      "difficulty": "intermediate",
+      "age_relevance": [20, 21, 22, 23, 24, 25, 26, 27, 28],
+      "content": "Marshmallow test principle: people who can delay gratification achieve better life outcomes. Financially: skip €5 daily coffee (€1800/year) to build investment portfolio. Choose used car over new (save €10,000+). Live with roommates 2 extra years (save €15,000). Compound effect is massive. Delaying gratification from 20-30 can mean retiring 10 years earlier. Not about deprivation - about conscious choices. Spend on what truly matters, cut ruthlessly on rest. Every €1000 saved at 25 becomes €7600 at 65 (7% return)."
+    },
+    {
+      "id": "sunk_cost_fallacy",
+      "title": "Sunk Cost Fallacy in Finance",
+      "category": "behavioral_finance",
+      "difficulty": "intermediate",
+      "age_relevance": [22, 23, 24, 25, 26, 27, 28, 29],
+      "content": "Sunk cost fallacy: continuing bad investment because you've already spent money/time. Examples: keeping car you bought that has endless repairs because 'I already paid €8000', staying in wrong career because 'I spent 4 years studying'. Past costs are GONE. Only consider future costs/benefits. If you wouldn't buy the car again today, sell it. If you wouldn't choose this career today, switch. Cut losses early, don't throw good money after bad. This applies to stocks, subscriptions, relationships, education paths."
+    },
+    {
+      "id": "etf_vs_mutual_funds",
+      "title": "ETFs vs Mutual Funds",
+      "category": "investing",
+      "difficulty": "intermediate",
+      "age_relevance": [23, 24, 25, 26, 27, 28, 29, 30],
+      "content": "ETFs (Exchange-Traded Funds) trade like stocks, mutual funds trade once daily. ETFs usually have lower fees (0.1-0.5% vs 1-2% for mutual funds). Both offer diversification. In Finland, prefer ETFs from Nordnet or Nordea. Tax treatment is same in Finland. Popular ETFs: Vanguard Total World Stock (VT), S&P 500 (VOO), Europe (VGK). ETFs more flexible for active traders, mutual funds simpler for automatic monthly investing. Both work - fees matter more than vehicle type."
+    },
+    {
+      "id": "salary_negotiation",
+      "title": "Entry-Level Salary Negotiation",
+      "category": "career",
+      "difficulty": "intermediate",
+      "age_relevance": [22, 23, 24, 25, 26, 27],
+      "content": "In Finland, salaries are often set by collective agreements (TES), but negotiation room exists. Research market rates on Glassdoor or Palkka.fi. First job: €2500-3500/month typical for university graduates. Don't accept first offer - counteroffer 5-10% higher, backed by research. Negotiate beyond salary: remote work days, vacation days, professional development budget, flex time. €200/month more salary = €2400/year = €24,000 over 10 years + raises compound from higher base. Women: studies show you negotiate less - fight this, know your worth."
+    },
+    {
+      "id": "side_hustle_taxes",
+      "title": "Side Hustle Tax Implications",
+      "category": "taxes",
+      "difficulty": "intermediate",
+      "age_relevance": [22, 23, 24, 25, 26, 27, 28],
+      "content": "Side income (freelancing, online business, etc.) is taxable in Finland. Under €10,000/year: report as earned income, taxed at your marginal rate (25-45%). Over €10,000: consider registering business (toiminimi) for tax deductions. Business expenses are deductible: equipment, home office, travel. Keep all receipts. Register for VAT if income >€15,000. Report via Vero.fi or hire accountant (€500-1000/year). Don't hide income - Vero can trace bank deposits. Legit side hustles can boost income 20-50% while building skills."
+    },
+    {
+      "id": "insurance_basics_finland",
+      "title": "Essential Insurance in Finland",
+      "category": "life_planning",
+      "difficulty": "intermediate",
+      "age_relevance": [23, 24, 25, 26, 27, 28, 29],
+      "content": "Mandatory: Health (Kela card - free), Home insurance (€150-300/year), Car insurance if you own vehicle (€400-800/year). Recommended: Life insurance if you have dependents (€15-30/month), Income protection insurance (€30-60/month). Optional: Travel insurance (€50-100/year), Pet insurance if you have pet (€30-50/month). Don't over-insure. Young, single, healthy? Home + health sufficient. Having kids? Add life insurance. Deductibles: higher deductible = lower premium. Shop around - OP, If, Lähitapiola have competitive rates."
+    },
+    {
+      "id": "car_ownership_cost",
+      "title": "True Cost of Car Ownership",
+      "category": "life_planning",
+      "difficulty": "intermediate",
+      "age_relevance": [22, 23, 24, 25, 26, 27, 28],
+      "content": "Used car €5000-10,000 purchase. Annual costs: insurance €600, tax €150-300, maintenance €500-1000, fuel €1500-2500 (15,000 km/year), parking €300-1200 (Helsinki). Total: €3000-5500/year or €250-450/month. Plus depreciation €500-1000/year. Helsinki public transport €720/year. Car makes sense if you: live rurally, have family, need for work, carpooling. Single in city? Public transport + occasional rental cheaper. €4000/year saved over 10 years invested = €50,000+ toward house/retirement."
+    },
+    {
+      "id": "rental_vs_buying_home",
+      "title": "Renting vs Buying Home in Finland",
+      "category": "life_planning",
+      "difficulty": "advanced",
+      "age_relevance": [25, 26, 27, 28, 29, 30],
+      "content": "Helsinki apartment costs €4000-6000/m². 40m² = €160,000-240,000. Downpayment 10% = €16,000-24,000 + costs €5000 = €21,000-29,000 upfront. Monthly loan €600-800 + maintenance €150-250 = €750-1050 total. Comparable rental: €800-1000. Buying wins if: you'll stay 5+ years (transaction costs are high), interest rates <4%, housing market appreciates. Renting wins if: job uncertainty, want to move cities, investment returns > real estate returns, prefer liquidity. In 20s renting often smarter - invest difference in index funds, more career mobility."
+    },
+    {
+      "id": "investment_risk_tolerance",
+      "title": "Understanding Your Risk Tolerance",
+      "category": "investing",
+      "difficulty": "intermediate",
+      "age_relevance": [22, 23, 24, 25, 26, 27, 28, 29, 30],
+      "content": "Risk tolerance = how much volatility you can stomach. Young investors (20s) can take high risk - 30+ years until retirement means market downturns recover. 80-100% stocks is fine. Conservative: 60% stocks, 40% bonds. Moderate: 80/20. Aggressive: 100% stocks. Test yourself: if your €10,000 portfolio drops to €7,000 in market crash, do you: panic sell (low tolerance), hold steady (medium), or buy more (high tolerance)? Match investments to tolerance or you'll sell at wrong time. Can't sleep at night? Too much risk."
+    },
+    {
+      "id": "crypto_awareness",
+      "title": "Cryptocurrency: Risks and Reality",
+      "category": "investing",
+      "difficulty": "intermediate",
+      "age_relevance": [20, 21, 22, 23, 24, 25, 26, 27, 28],
+      "content": "Crypto is highly speculative. Bitcoin/Ethereum can drop 50-80% in months. Not suitable as primary investment. If you invest: max 5% of portfolio, only money you can lose, understand technology, use reputable exchanges (Coinbase, Kraken), report to Vero (taxed as capital gains 30-34%). Many young people lost savings in crypto crashes 2018, 2022. It's gambling, not investing. Focus on boring index funds first. Once you have €20,000+ invested traditionally, then maybe experiment with 5% in crypto. Never use leverage. Ignore get-rich-quick hype."
+    },
+    {
+      "id": "budget_tracking_apps",
+      "title": "Digital Budget Tracking Tools",
+      "category": "budgeting",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24, 25],
+      "content": "Track spending to control finances. Finnish banks have built-in tools: Nordea Wallet, OP-mobile show spending categories automatically. International apps: YNAB (You Need A Budget) €15/month, Mint (free but US-focused). Simple method: spreadsheet with monthly income, expenses by category, savings goal. Review weekly first month, then monthly. Awareness alone reduces spending 10-20%. Connect all accounts (checking, savings, credit cards) for complete picture. Export data end of year for tax prep. Gamify it - beat previous month's savings rate."
+    },
+    {
+      "id": "meal_planning_savings",
+      "title": "Meal Planning for Budget Control",
+      "category": "budgeting",
+      "difficulty": "beginner",
+      "age_relevance": [18, 19, 20, 21, 22, 23, 24],
+      "content": "Meal planning saves €200-400/month. Average Helsinki lunch €12, dinner out €35 = €47/day = €1400/month. Cooking at home: €5-8/day = €150-240/month. Plan weekly: Sunday meal prep, shop once with list (avoid impulse buys), batch cook (freeze portions), pack lunches. Shop Lidl/Prisma for staples, S-market for deals. Finnish staples: oatmeal, potatoes, carrots, pasta, frozen vegetables, cheap protein (chicken thighs, eggs, legumes). €1200/month saved over 4 years = €57,600 + investment returns = ~€70,000 toward house downpayment."
+    },
+    {
+      "id": "subscription_audit",
+      "title": "Subscription Service Audit",
+      "category": "budgeting",
+      "difficulty": "beginner",
+      "age_relevance": [20, 21, 22, 23, 24, 25, 26, 27],
+      "content": "Average person has 5-10 subscriptions they forget about. List ALL: streaming (Netflix €14, Spotify €11, Disney+ €9), gym €40-80, cloud storage €3-10, gaming €15-60, software, meal kits, beauty boxes. Total often €150-300/month = €1800-3600/year. Audit quarterly: use in last month? No = cancel. Share family plans (Spotify family €18 / 6 people = €3 each). Rotate streaming services monthly. Use free alternatives: Yle Areena (free Finnish content), library e-books, free workout YouTube channels. Cut €100/month = €1200/year = €6000 in 5 years invested."
+    },
+    {
+      "id": "financial_independence_definition",
+      "title": "What is Financial Independence?",
+      "category": "life_planning",
+      "difficulty": "intermediate",
+      "age_relevance": [23, 24, 25, 26, 27, 28, 29, 30],
+      "content": "Financial Independence (FI): when passive income covers living expenses. Don't need job to survive. FI Number = annual expenses × 25. If you spend €25,000/year, need €625,000 invested. At 4% withdrawal rate (safe historically), that's €25,000/year forever. FIRE = Financial Independence Retire Early. Paths: Lean FIRE (minimal expenses, FI at €300-500k), Regular FIRE (€800k-1.2M), Fat FIRE (€2M+, luxury lifestyle). Young Finns can reach FIRE at 40-50 by saving 50-70% of income, investing in index funds, living below means. Not about deprivation - about freedom to choose work."
+    },
+    {
+      "id": "passive_income_sources",
+      "title": "Building Passive Income Streams",
+      "category": "career",
+      "difficulty": "advanced",
+      "age_relevance": [25, 26, 27, 28, 29, 30],
+      "content": "Passive income = money earned without active work. Sources: dividends from stocks (3-4% yield), rental property income (after costs, 3-5% yield), index fund growth (7-10% long-term), online business (e-books, courses, affiliate marketing), royalties (music, books, patents), peer-to-peer lending (risky, 5-8%). Start with index funds - most accessible. €100,000 invested → €7,000/year passive income (7% return). Build over time. By 30s, aim for €500-1000/month passive income. By 40s, €2000-3000/month. Eventually covers all expenses = financial independence."
+    }
+  ]
+}
