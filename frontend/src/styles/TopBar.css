@@ -21,6 +21,31 @@
   font-weight: 700;
 }
 
+.month-indicator {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
+.user-badge {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.test-mode-badge {
+  background: #fbbf24;
+  color: #78350f;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .top-bar-right {
   display: flex;
   align-items: center;
@@ -67,8 +92,11 @@
   box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
 }
 
-.btn-new-game {
-  padding: 8px 16px;
+.btn-leaderboard,
+.btn-new-game,
+.btn-settings,
+.btn-logout {
+  padding: 10px 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -76,9 +104,20 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  font-size: 0.9rem;
 }
 
-.btn-new-game:hover {
+.btn-leaderboard {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+}
+
+.btn-leaderboard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(251, 191, 36, 0.4);
+}
+
+.btn-new-game:hover,
+.btn-settings:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
@@ -98,5 +137,22 @@
 .btn-clear-cache:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.btn-settings {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+}
+
+.btn-settings:hover {
+  box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+}
+
+.btn-logout {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.btn-logout:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
 }
 
