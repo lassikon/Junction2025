@@ -1,47 +1,90 @@
-import React from 'react';
-import './MetricsBar.css';
+import React from "react";
+import "../styles/MetricsBar.css";
 
-function MetricsBar({ metrics }) {
-  if (!metrics) return null;
+/**
+ * MetricsBar - Display financial metrics in a compact bar
+ */
+const MetricsBar = ({ gameState }) => {
+  const {
+    current_age = 25,
+    years_passed = 0,
+    money = 0,
+    monthly_income = 0,
+    monthly_expenses = 0,
+    investments = 0,
+    passive_income = 0,
+    debts = 0,
+  } = gameState;
 
-  const metricsConfig = [
-    { key: 'money', label: 'Money', color: '#10b981', format: (v) => `€${v.toLocaleString()}`, max: null },
-    { key: 'fiScore', label: 'FI Score', color: '#3b82f6', format: (v) => `${v}%`, max: 100 },
-    { key: 'energy', label: 'Energy', color: '#f59e0b', format: (v) => v, max: 100 },
-    { key: 'motivation', label: 'Motivation', color: '#8b5cf6', format: (v) => v, max: 100 },
-    { key: 'social', label: 'Social Life', color: '#ec4899', format: (v) => v, max: 100 },
-    { key: 'knowledge', label: 'Financial Knowledge', color: '#06b6d4', format: (v) => v, max: 100 }
-  ];
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("fi-FI", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
   return (
     <div className="metrics-bar">
-      {metricsConfig.map(({ key, label, color, format, max }) => {
-        const value = metrics[key] || 0;
-        const percentage = max ? (value / max) * 100 : 100;
-        
-        return (
-          <div key={key} className="metric-item">
-            <div className="metric-header">
-              <span className="metric-label">{label}</span>
-              <span className="metric-value">{format(value)}</span>
-            </div>
-            {max && (
-              <div className="metric-bar-container">
-                <div 
-                  className="metric-bar-fill" 
-                  style={{ 
-                    width: `${Math.min(percentage, 100)}%`,
-                    backgroundColor: color
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
+      <div className="metric-item highlight">
+        <span className="metric-icon">👤</span>
+        <div className="metric-info">
+          <span className="metric-label">Age</span>
+          <span className="metric-value">{current_age} yrs</span>
+        </div>
+      </div>
+
+      <div className="metric-item">
+        <span className="metric-icon">💰</span>
+        <div className="metric-info">
+          <span className="metric-label">Cash</span>
+          <span className="metric-value">{formatCurrency(money)}</span>
+        </div>
+      </div>
+
+      <div className="metric-item">
+        <span className="metric-icon">📈</span>
+        <div className="metric-info">
+          <span className="metric-label">Investments</span>
+          <span className="metric-value">{formatCurrency(investments)}</span>
+        </div>
+      </div>
+
+      <div className="metric-item">
+        <span className="metric-icon">💵</span>
+        <div className="metric-info">
+          <span className="metric-label">Income</span>
+          <span className="metric-value">{formatCurrency(monthly_income)}</span>
+        </div>
+      </div>
+
+      <div className="metric-item">
+        <span className="metric-icon">💸</span>
+        <div className="metric-info">
+          <span className="metric-label">Expenses</span>
+          <span className="metric-value">{formatCurrency(monthly_expenses)}</span>
+        </div>
+      </div>
+
+      <div className="metric-item">
+        <span className="metric-icon">🌊</span>
+        <div className="metric-info">
+          <span className="metric-label">Passive</span>
+          <span className="metric-value">{formatCurrency(passive_income)}</span>
+        </div>
+      </div>
+
+      <div className="metric-item">
+        <span className="metric-icon">💳</span>
+        <div className="metric-info">
+          <span className="metric-label">Debts</span>
+          <span className="metric-value">{formatCurrency(debts)}</span>
+        </div>
+      </div>
     </div>
   );
-}
+};
 
 export default MetricsBar;
 

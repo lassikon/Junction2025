@@ -23,6 +23,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
+      - PORT=4000
       - REACT_APP_API_URL=http://localhost:8000
       - CHOKIDAR_USEPOLLING=true
       - PORT=4000

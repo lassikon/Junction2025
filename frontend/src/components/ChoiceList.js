@@ -1,34 +1,45 @@
-import React from 'react';
-import './ChoiceList.css';
+import React from "react";
+import "../styles/ChoiceList.css";
 
-function ChoiceList({ narrative, choices, onChoiceClick, disabled }) {
+/**
+ * ChoiceList - Modal displaying narrative and decision options
+ */
+const ChoiceList = ({ narrative, options, onChoose, onClose, isProcessing }) => {
   return (
-    <div className="choice-list">
-      <div className="narrative-box">
-        <p className="narrative-text">{narrative}</p>
-      </div>
-      
-      <div className="choices-container">
-        <h3 className="choices-title">What will you do?</h3>
-        <div className="choices">
-          {choices.map((choice) => (
-            <button
-              key={choice.id}
-              className="choice-button"
-              onClick={() => onChoiceClick(choice.id)}
-              disabled={disabled}
-            >
-              <div className="choice-label">{choice.label}</div>
-              {choice.description && (
-                <div className="choice-description">{choice.description}</div>
-              )}
-            </button>
-          ))}
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="narrative-section">
+          <h2>📖 Your Story</h2>
+          <p className="narrative-text">{narrative}</p>
+        </div>
+
+        <div className="options-section">
+          <h3>What will you do?</h3>
+          <div className="options-grid">
+            {options.map((option, index) => (
+              <button
+                key={index}
+                className="option-button"
+                onClick={() => onChoose(option)}
+                disabled={isProcessing}
+              >
+                {isProcessing ? "Processing..." : option}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
+<<<<<<< HEAD
 }
+=======
+};
+>>>>>>> 07a8dd731f5954a91b61520192a2a98331767bf8
 
 export default ChoiceList;
 

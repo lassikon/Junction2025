@@ -184,6 +184,8 @@ def initialize_game_state(profile: PlayerProfile) -> Dict:
 
     return {
         "current_step": 0,
+        "current_age": profile.age,  # Initialize with player's starting age
+        "years_passed": 0.0,
         "money": profile.starting_savings,
         "monthly_income": monthly_income,
         "monthly_expenses": monthly_expenses,

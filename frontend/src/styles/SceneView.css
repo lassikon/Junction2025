@@ -1,0 +1,457 @@
+.scene-view {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px 20px;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: background-image 1s ease;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.age-badge {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px 18px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #333;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+
+.step-badge {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  z-index: 10;
+}
+
+/* Game Scene - Visual Asset Display */
+.game-scene {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  padding: 60px 40px 20px;
+  min-height: 280px;
+  background: linear-gradient(to top, rgba(0,0,0,0.1) 0%, transparent 50%);
+  margin-bottom: 20px;
+  border-radius: 15px;
+}
+
+.character-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 3;
+}
+
+.character-img {
+  height: 220px;
+  max-width: 180px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 25px rgba(0,0,0,0.4));
+  transition: all 0.5s ease;
+  animation: fadeInUp 0.8s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.house-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 2;
+}
+
+.house-img {
+  height: 180px;
+  max-width: 220px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,0.3));
+  transition: all 0.5s ease;
+  animation: fadeInScale 0.8s ease 0.2s backwards;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.vehicle-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 2;
+}
+
+.vehicle-img {
+  height: 100px;
+  max-width: 150px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 15px rgba(0,0,0,0.3));
+  transition: all 0.5s ease;
+  animation: fadeInSlide 0.8s ease 0.4s backwards;
+}
+
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* FI Score Section */
+.fi-score-section {
+  margin-bottom: 40px;
+}
+
+.fi-score-card {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.fi-score-card h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+}
+
+.fi-score {
+  font-size: 4rem;
+  font-weight: 800;
+  margin: 20px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.fi-score.fi-excellent {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.fi-score.fi-good {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.fi-score.fi-medium {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.fi-score.fi-low {
+  background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.fi-score-description {
+  font-size: 1.2rem;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.fi-progress-bar {
+  height: 30px;
+  background: #e0e0e0;
+  border-radius: 15px;
+  overflow: hidden;
+  position: relative;
+}
+
+.fi-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.5s ease;
+  border-radius: 15px;
+}
+
+/* Life Metrics Section */
+.life-metrics-section {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.life-metrics-section h3 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+}
+
+.life-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.life-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.life-metric-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.life-metric-icon {
+  font-size: 1.5rem;
+}
+
+.life-metric-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.life-metric-bar {
+  height: 30px;
+  background: #e0e0e0;
+  border-radius: 15px;
+  overflow: hidden;
+  position: relative;
+}
+
+.life-metric-fill {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 15px;
+  transition: width 0.5s ease, background 0.3s ease;
+  min-width: 40px;
+}
+
+.life-metric-fill.status-good {
+  background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+}
+
+.life-metric-fill.status-medium {
+  background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%);
+}
+
+.life-metric-fill.status-low {
+  background: linear-gradient(90deg, #f44336 0%, #e91e63 100%);
+}
+
+.life-metric-value {
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+/* Assets Section */
+.assets-section {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.assets-section h3 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.asset-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 15px;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.asset-card:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  transform: translateY(-3px);
+  border-color: #667eea;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+}
+
+.asset-icon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.asset-info {
+  flex: 1;
+  min-width: 0; /* Allow text truncation */
+}
+
+.asset-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #667eea;
+  text-transform: capitalize;
+  margin-bottom: 5px;
+  letter-spacing: 0.5px;
+}
+
+.asset-details {
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+/* Action Section */
+.action-section {
+  text-align: center;
+  padding: 30px 0;
+}
+
+.btn-action {
+  padding: 18px 50px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.btn-action:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+}
+
+.completion-message {
+  text-align: center;
+  padding: 60px 20px;
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  border-radius: 20px;
+  color: white;
+}
+
+.completion-message h2 {
+  font-size: 3rem;
+  margin-bottom: 20px;
+}
+
+.completion-message p {
+  font-size: 1.3rem;
+  opacity: 0.95;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .game-scene {
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 20px;
+    min-height: 200px;
+  }
+
+  .character-img {
+    height: 160px;
+  }
+
+  .house-img {
+    height: 130px;
+  }
+
+  .vehicle-img {
+    height: 80px;
+  }
+
+  .age-badge {
+    font-size: 0.85rem;
+    padding: 8px 14px;
+  }
+
+  .step-badge {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+
+  .fi-score-card {
+    padding: 30px 20px;
+  }
+
+  .fi-score {
+    font-size: 3rem;
+  }
+
+  .life-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .assets-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

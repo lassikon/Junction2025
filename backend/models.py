@@ -90,6 +90,10 @@ class GameState(SQLModel, table=True):
     # Which decision/event the player is on
     current_step: int = Field(default=0)
     game_status: GameStatus = Field(default=GameStatus.ACTIVE)
+    
+    # Time tracking
+    current_age: int = Field(default=25)  # Updates as time passes
+    years_passed: float = Field(default=0.0)  # Total game time in years
 
     # Financial metrics
     money: float = Field(default=0.0)  # Current cash/savings
@@ -228,6 +232,8 @@ class GameStateResponse(SQLModel):
     """Response model with current game state"""
     session_id: str
     current_step: int
+    current_age: int  # Player's current age
+    years_passed: float  # Time elapsed in game
 
     # Financial metrics
     money: float

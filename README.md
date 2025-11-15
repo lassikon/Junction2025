@@ -23,7 +23,7 @@ Quick Docker setup with React frontend and Python FastAPI backend for AI/LLM dev
    ```
 
 3. **Access the Application**
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:4000
    - Backend API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
 
@@ -90,7 +90,7 @@ See `backend/DATABASE.md` for complete API documentation.
 
 ## 🧪 Testing the Setup
 
-1. Open http://localhost:3000
+1. Open http://localhost:4000
 2. You should see "API: connected" if backend is running
 3. Type a message - it will echo back (update `/api/chat` for real LLM integration)
 
@@ -130,7 +130,7 @@ docker-compose up --build frontend
 ```bash
 # Change ports in docker-compose.yml
 ports:
-  - "3001:3000"  # Frontend
+  - "4001:4000"  # Frontend
   - "8001:8000"  # Backend
 ```
 

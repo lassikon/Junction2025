@@ -254,7 +254,7 @@ To test the onboarding flow:
 
 1. Start the backend: `cd backend && python start_server.py`
 2. Start the frontend: `cd frontend && npm start`
-3. Visit http://localhost:3000
+3. Visit http://localhost:4000
 4. Complete the onboarding wizard
 5. Verify game state is displayed correctly
 6. Refresh page and verify session persistence

@@ -95,8 +95,13 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> None:
     state.fi_score = calculate_fi_score(
         state.passive_income, state.monthly_expenses)
 
-    # Increment step
+    # Increment step and age
     state.current_step += 1
+    
+    # Time progression: each step = 6 months
+    time_per_step = 0.5  # years
+    state.years_passed += time_per_step
+    state.current_age = int(state.current_age + time_per_step)
 
 
 def get_event_type(state: GameState, profile: PlayerProfile) -> str:

@@ -1,28 +1,50 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { GameProvider } from './context/GameContext';
-import LoginPage from './routes/LoginPage';
-import GamePage from './routes/GamePage';
-import SettingsPage from './routes/SettingsPage';
-import MockHome from './MockHome';
-import Chat from './Chat';
-import LearnMore from './LearnMore'
-import './App.css';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { QueryProvider } from "./providers/QueryProvider";
+import { useSessionCheck } from "./hooks/useSessionCheck";
+import OnboardingPage from "./routes/OnboardingPage";
+import GamePage from "./routes/GamePage";
+import "./styles/App.css";
+
+function AppRoutes() {
+  const { sessionId, showOnboarding } = useSessionCheck();
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          showOnboarding || !sessionId ? (
+            <OnboardingPage />
+          ) : (
+            <Navigate to="/game" replace />
+          )
+        }
+      />
+      <Route
+        path="/game"
+        element={
+          sessionId && !showOnboarding ? (
+            <GamePage />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
 
 function App() {
   return (
-    <GameProvider>
+    <QueryProvider>
       <Router>
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/game" element={<GamePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/old-home" element={<MockHome />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/learn" element={<LearnMore />} />
-        </Routes>
+        <div className="App">
+          <AppRoutes />
+        </div>
       </Router>
-    </GameProvider>
+    </QueryProvider>
   );
 }
 

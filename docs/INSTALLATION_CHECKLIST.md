@@ -74,7 +74,7 @@ npm start
 
 ```
 Compiled successfully!
-Local: http://localhost:3000
+Local: http://localhost:4000
 ```
 
 ---
@@ -83,7 +83,7 @@ Local: http://localhost:3000
 
 #### Test 1: API Status ✅
 
-- Open http://localhost:3000
+- Open http://localhost:4000
 - Top bar should show: **"API: connected"** (green)
 - If red, check backend is running
 
@@ -132,7 +132,7 @@ Local: http://localhost:3000
 #### Test 6: localStorage Persistence ✅
 
 - Open browser DevTools (F12)
-- Go to: Application → Local Storage → http://localhost:3000
+- Go to: Application → Local Storage → http://localhost:4000
 - Should see key: `lifesim-game-storage`
 - Value should contain `sessionId`
 - Refresh page (F5)
