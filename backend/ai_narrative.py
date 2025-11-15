@@ -993,11 +993,12 @@ def generate_dynamic_options(
             print(f"Warning: Invalid options format, using fallback")
             return generate_fallback_options(event_type, state)
 
-        # Validate each option has required fields
-        required_fields = ["text", "money_change", "explanation"]
+        # Validate each option has required fields (NEW FORMAT: actions only)
+        required_fields = ["text", "risk_level", "category"]
         for opt in options:
             if not all(field in opt for field in required_fields):
-                print(f"Warning: Option missing required fields, using fallback")
+                print(
+                    f"Warning: Option missing required fields: {opt.keys()}, using fallback")
                 return generate_fallback_options(event_type, state)
 
         print(f"✅ Successfully generated {len(options)} dynamic options")
