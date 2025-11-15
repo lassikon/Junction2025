@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useHealthCheck } from "../api/lifesim";
@@ -18,6 +18,8 @@ const TopBar = ({ onShowTransactions, playerState }) => {
   const { resetGame, authToken, displayName, isTestMode, clearAll } = useGameStore();
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showLearn, setShowLearn] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
 
   const apiStatus = healthStatus?.status === "healthy" ? "connected" : "disconnected";
 
@@ -85,6 +87,17 @@ const TopBar = ({ onShowTransactions, playerState }) => {
     `${getPhaseName(playerState.month_phase)} ${getMonthName(playerState.months_passed)}` : 
     "";
 
+  useEffect(() => {
+    function handleDocClick(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMenu(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleDocClick);
+    return () => document.removeEventListener('mousedown', handleDocClick);
+  }, []);
+
   return (
     <div className="top-bar">
       <div className="top-bar-left">
@@ -94,56 +107,45 @@ const TopBar = ({ onShowTransactions, playerState }) => {
             📅 {monthDisplay}
           </div>
         )}
+      </div>
+      
+      <div className="top-bar-right">
+        {/* keep user badge if present */}
         {authToken && displayName && (
           <div className="user-badge">
             👤 {displayName}
             {isTestMode && <span className="test-mode-badge">Guest</span>}
           </div>
         )}
-      </div>
-      
-      <div className="top-bar-right">
-        <div className={`api-status status-${apiStatus}`}>
-          API: {apiStatus}
+
+        <div className="menu-wrap" ref={menuRef}>
+          <button
+            className="topbar-menu-btn"
+            onClick={() => setShowMenu((s) => !s)}
+            aria-haspopup="true"
+            aria-expanded={showMenu}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
+          {showMenu && (
+            <div className="dropdown-menu" role="menu">
+              <button className="dropdown-item" onClick={() => { setShowLeaderboard(true); setShowMenu(false); }}>🏆 Leaderboard</button>
+              {onShowTransactions && (
+                <button className="dropdown-item" onClick={() => { onShowTransactions(); setShowMenu(false); }}>📊 History</button>
+              )}
+              <button className="dropdown-item" onClick={() => { setShowLearn(true); setShowMenu(false); }}>ℹ️ Learn more</button>
+              <button className="dropdown-item" onClick={() => { handleNewGame(); setShowMenu(false); }}>🎮 New Game</button>
+              {authToken && !isTestMode && (
+                <button className="dropdown-item" onClick={() => { handleSettings(); setShowMenu(false); }}>⚙️ Settings</button>
+              )}
+              {authToken && (
+                <button className="dropdown-item" onClick={() => { handleLogout(); setShowMenu(false); }}>🚪 Logout</button>
+              )}
+            </div>
+          )}
         </div>
-        <button 
-          onClick={() => setShowLeaderboard(true)} 
-          className="btn-leaderboard"
-        >
-          🏆 Leaderboard
-        </button>
-        {onShowTransactions && (
-          <button onClick={onShowTransactions} className="btn-transactions">
-            📊 History
-          </button>
-        )}
-        <button 
-          onClick={handleClearCache} 
-          className="btn-clear-cache"
-          title="Clear cache and reload"
-        >
-          🔄 Clear Cache
-        </button>
-        <button
-          onClick={() => setShowLearn(true)}
-          className="btn-learn-more"
-          title="Learn more about the game"
-        >
-          ℹ️ Learn more
-        </button>
-        <button onClick={handleNewGame} className="btn-new-game">
-          🎮 New Game
-        </button>
-        {authToken && !isTestMode && (
-          <button onClick={handleSettings} className="btn-settings">
-            ⚙️ Settings
-          </button>
-        )}
-        {authToken && (
-          <button onClick={handleLogout} className="btn-logout">
-            🚪 Logout
-          </button>
-        )}
       </div>
       
       {showLearn && (
