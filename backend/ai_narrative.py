@@ -340,30 +340,30 @@ async def generate_consequence_narrative(
 
     try:
         # RAG-ENHANCED: Retrieve context about similar decisions
-        print("\n" + "#"*80)
-        print(f"💥 CONSEQUENCE GENERATION - Context Retrieval")
-        print("#"*80)
-        rag_query = f"{chosen_option}. {option_data.get('category', 'financial')} decision. Risk: {option_data.get('risk_level', 'medium')}"
-        rag_context = await retrieve_rag_context(
-            query=rag_query,
-            profile_id=profile.id,
-            db_session=db_session,
-            current_age=state.current_age,
-            current_fi_score=state.fi_score,
-            top_k=5,
-            min_score=0.4,
-            min_concepts=3,
-            include_decisions=True
-        )
+        # print("\n" + "#"*80)
+        # print(f"💥 CONSEQUENCE GENERATION - Context Retrieval")
+        # print("#"*80)
+        # rag_query = f"{chosen_option}. {option_data.get('category', 'financial')} decision. Risk: {option_data.get('risk_level', 'medium')}"
+        # rag_context = await retrieve_rag_context(
+        #     query=rag_query,
+        #     profile_id=profile.id,
+        #     db_session=db_session,
+        #     current_age=state.current_age,
+        #     current_fi_score=state.fi_score,
+        #     top_k=5,
+        #     min_score=0.4,
+        #     min_concepts=3,
+        #     include_decisions=True
+        # )
 
-        if rag_context:
-            print(f"✅ Context WILL BE INJECTED into consequence prompt")
-        else:
-            print(f"ℹ️  No context - proceeding with standard prompt")
-        print("#"*80 + "\n")
+        # if rag_context:
+        #     print(f"✅ Context WILL BE INJECTED into consequence prompt")
+        # else:
+        #     print(f"ℹ️  No context - proceeding with standard prompt")
+        # print("#"*80 + "\n")
 
         prompt = build_consequence_prompt(
-            chosen_option, option_data, state, profile, event_narrative, state_before, rag_context)
+            chosen_option, option_data, state, profile, event_narrative, state_before, None)
 
         print("\n" + "="*80)
         print("🤖 GEMINI API CALL - Consequence Generation")
