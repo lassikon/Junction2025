@@ -175,7 +175,7 @@ def generate_learning_moment(
         
         # Build query from context
         query = f"{chosen_option}. Age {state.current_age}, FI score {state.fi_score:.1f}%, financial knowledge {state.financial_knowledge}/100"
-        
+        print(f"🔎 RAG Query for learning moment: {query}")
         # Retrieve relevant financial concepts
         difficulty = "beginner" if state.financial_knowledge < 50 else "intermediate"
         concepts = rag.retrieve_financial_concepts(
@@ -183,17 +183,22 @@ def generate_learning_moment(
             difficulty_filter=difficulty,
             top_k=2
         )
-        
+        print(f"🔍 Retrieved {len(concepts)} concepts for learning moment")
+        for concept in concepts:
+            print(f"   - {concept['title']} (score: {concept['score']:.2f})")
+
         # Only generate if we found relevant concepts (score > 0.7)
         if not concepts or concepts[0]['score'] < 0.7:
+            print("⚠️ No relevant concepts found with sufficient score for learning moment")
             return None  # No relevant tip available
         
-        if client is None:
+        if client is None:  
             client = get_ai_client()
         
         if client is None:
             return None
         
+        print(f"🔎 Using concept for learning moment: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
         # Build enhanced prompt with retrieved context
         prompt = f"""You are a friendly financial education coach. Provide a brief, practical tip.
 
