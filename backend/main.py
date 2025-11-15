@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import os
+import time
+from contextlib import contextmanager
 from dotenv import load_dotenv
 from google import genai
 from contextlib import asynccontextmanager
@@ -35,6 +37,21 @@ from chat_utils import (
 from chat_ai import generate_chat_response
 
 load_dotenv()
+
+
+# =====================================================
+# Performance Monitoring - Easy to remove
+# =====================================================
+@contextmanager
+def timer(operation_name: str):
+    """Context manager to time operations. Remove this block to disable timing."""
+    start = time.time()
+    try:
+        yield
+    finally:
+        duration = time.time() - start
+        print(f"⏱️  {operation_name}: {duration:.3f}s")
+# =====================================================
 
 
 @asynccontextmanager
@@ -144,52 +161,53 @@ async def health():
 async def chat(request: ChatRequest, db_session: AsyncSession = Depends(get_session)):
     """
     Send a chat message and receive game-aware AI response
-    
+
     This endpoint provides an AI assistant that is aware of:
     - Your current game state (age, finances, FI score)
     - Your player profile (education, risk attitude, aspirations)
     - Recent chat history (with automatic summarization)
     - Recent game decisions
-    
+
     **Process:**
     1. Retrieves or creates chat session for your game
     2. Saves your message to chat history
     3. Generates context-aware AI response
     4. Automatically creates summary every 10 messages
     5. Returns AI response
-    
+
     **Parameters:**
     - **session_id**: Your game session ID
     - **message**: Your question or message
     - **model**: AI model to use (default: gemini-2.0-flash-exp)
-    
+
     **Returns:** AI response with session and message tracking info
     """
     try:
         # Get player profile and game state
         result = await db_session.execute(
-            select(PlayerProfile).where(PlayerProfile.session_id == request.session_id)
+            select(PlayerProfile).where(
+                PlayerProfile.session_id == request.session_id)
         )
         profile = result.scalar_one_or_none()
-        
+
         if not profile:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         result = await db_session.execute(
             select(GameState).where(GameState.profile_id == profile.id)
         )
         game_state = result.scalar_one_or_none()
-        
+
         if not game_state:
             raise HTTPException(status_code=404, detail="Game state not found")
-        
+
         # Get or create chat session
         chat_session = await get_or_create_chat_session(
             session_id=request.session_id,
             profile_id=profile.id,
             db_session=db_session
         )
-        
+
         # Save user message
         user_message = await save_chat_message(
             chat_session=chat_session,
@@ -198,7 +216,7 @@ async def chat(request: ChatRequest, db_session: AsyncSession = Depends(get_sess
             db_session=db_session,
             message_metadata={"model": request.model}
         )
-        
+
         # Generate AI response
         ai_response_text = await generate_chat_response(
             user_message=request.message,
@@ -208,7 +226,7 @@ async def chat(request: ChatRequest, db_session: AsyncSession = Depends(get_sess
             db_session=db_session,
             client=client
         )
-        
+
         # Save AI response
         ai_message = await save_chat_message(
             chat_session=chat_session,
@@ -217,28 +235,29 @@ async def chat(request: ChatRequest, db_session: AsyncSession = Depends(get_sess
             db_session=db_session,
             message_metadata={"model": request.model}
         )
-        
+
         # Check if we should create a summary
         if await should_create_summary(chat_session):
-            print(f"📊 Creating summary for chat session (message count: {chat_session.message_count})")
+            print(
+                f"📊 Creating summary for chat session (message count: {chat_session.message_count})")
             try:
                 # Get messages for summary (last 10)
                 summary_start = max(1, chat_session.message_count - 9)
                 summary_end = chat_session.message_count
-                
+
                 messages_for_summary = await get_recent_chat_messages(
                     chat_session_id=chat_session.id,
                     db_session=db_session,
                     limit=10
                 )
-                
+
                 summary_text = await create_chat_summary(
                     messages=messages_for_summary,
                     game_state=game_state,
                     profile=profile,
                     client=client
                 )
-                
+
                 await store_chat_summary(
                     chat_session=chat_session,
                     summary_text=summary_text,
@@ -246,16 +265,16 @@ async def chat(request: ChatRequest, db_session: AsyncSession = Depends(get_sess
                     message_range_end=summary_end,
                     db_session=db_session
                 )
-                
+
                 print(f"✅ Summary created: {summary_text[:100]}...")
-                
+
             except Exception as e:
                 print(f"⚠️ Failed to create summary: {e}")
-        
+
         # Commit all changes
         await db_session.commit()
         await db_session.refresh(ai_message)
-        
+
         return ChatResponse(
             response=ai_response_text,
             session_id=request.session_id,
@@ -263,7 +282,7 @@ async def chat(request: ChatRequest, db_session: AsyncSession = Depends(get_sess
             message_id=ai_message.id,
             model=request.model
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -302,19 +321,19 @@ async def get_chat_history(
 ):
     """
     Get chat history for a game session with pagination
-    
+
     Retrieves chat messages with automatic pagination and summarization.
-    
+
     **Features:**
     - Paginated message retrieval (default 20 messages per page)
     - Automatic summary when history exceeds 10 messages
     - Messages ordered chronologically (oldest to newest)
-    
+
     **Parameters:**
     - **session_id**: Game session ID
     - **page**: Page number (default: 1)
     - **page_size**: Messages per page (default: 20, max: 100)
-    
+
     **Returns:** Chat messages, summary (if available), and pagination info
     """
     try:
@@ -322,23 +341,24 @@ async def get_chat_history(
         if page < 1:
             raise HTTPException(status_code=400, detail="Page must be >= 1")
         if page_size < 1 or page_size > 100:
-            raise HTTPException(status_code=400, detail="Page size must be between 1 and 100")
-        
+            raise HTTPException(
+                status_code=400, detail="Page size must be between 1 and 100")
+
         # Get player profile
         result = await db_session.execute(
             select(PlayerProfile).where(PlayerProfile.session_id == session_id)
         )
         profile = result.scalar_one_or_none()
-        
+
         if not profile:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         # Get chat session
         result = await db_session.execute(
             select(ChatSession).where(ChatSession.profile_id == profile.id)
         )
         chat_session = result.scalar_one_or_none()
-        
+
         if not chat_session:
             # No chat history yet
             return ChatHistoryResponse(
@@ -351,7 +371,7 @@ async def get_chat_history(
                 page_size=page_size,
                 has_more=False
             )
-        
+
         # Get total message count
         from sqlmodel import func
         count_result = await db_session.execute(
@@ -359,11 +379,11 @@ async def get_chat_history(
             .where(ChatMessage.chat_session_id == chat_session.id)
         )
         total_count = count_result.scalar()
-        
+
         # Calculate pagination
         offset = (page - 1) * page_size
         has_more = (offset + page_size) < total_count
-        
+
         # Get messages for current page
         result = await db_session.execute(
             select(ChatMessage)
@@ -373,10 +393,10 @@ async def get_chat_history(
             .offset(offset)
         )
         messages = result.scalars().all()
-        
+
         # Reverse to get chronological order
         messages = list(reversed(messages))
-        
+
         # Format messages
         message_responses = [
             ChatMessageResponse(
@@ -387,7 +407,7 @@ async def get_chat_history(
             )
             for msg in messages
         ]
-        
+
         # Get summary if available
         summary_text = None
         if total_count > 10:
@@ -397,7 +417,7 @@ async def get_chat_history(
             )
             if summary:
                 summary_text = summary.summary_text
-        
+
         return ChatHistoryResponse(
             session_id=session_id,
             chat_session_id=chat_session.chat_session_id,
@@ -408,7 +428,7 @@ async def get_chat_history(
             page_size=page_size,
             has_more=has_more
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -479,7 +499,7 @@ async def create_player(
         await session.commit()
         await session.refresh(game_state)
 
-        # Generate initial narrative and options
+        # Generate initial event and options
         initial_event_type = get_event_type(game_state, profile)
 
         initial_narrative = await generate_event_narrative(
@@ -491,7 +511,7 @@ async def create_player(
             client=client
         )
 
-        # Generate dynamic options with AI
+        # Generate dynamic options with AI - frontend will send these back with effects
         initial_options_data = generate_dynamic_options(
             event_type=initial_event_type,
             narrative=initial_narrative,
@@ -500,11 +520,6 @@ async def create_player(
             client=client
         )
 
-        # Extract option texts for response
-        initial_options = [opt["text"] for opt in initial_options_data]
-
-        # Store options data in game state metadata for retrieval
-        # (We'll need to recreate them on each step, so this is just for initial reference)
         game_state_response = GameStateResponse(
             session_id=session_id,
             current_step=game_state.current_step,
@@ -528,7 +543,7 @@ async def create_player(
         return OnboardingResponse(
             game_state=game_state_response,
             initial_narrative=initial_narrative,
-            initial_options=initial_options
+            initial_options=initial_options_data  # Return full option data with effects
         )
 
     except Exception as e:
@@ -714,14 +729,14 @@ async def get_decision_history(
 ):
     """
     Get decision history for a player session
-    
+
     Retrieves the player's past decisions with before/after states.
     Includes automatic summarization if history exceeds 10 decisions.
-    
+
     **Parameters:**
     - **session_id**: Player's session ID
     - **limit**: Maximum number of recent decisions to return (default: 10)
-    
+
     **Returns:** Decision history with states, or summary + recent decisions
     """
     try:
@@ -730,19 +745,19 @@ async def get_decision_history(
             select(PlayerProfile).where(PlayerProfile.session_id == session_id)
         )
         profile = result.scalar_one_or_none()
-        
+
         if not profile:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         # Get game state for current info
         result = await db_session.execute(
             select(GameState).where(GameState.profile_id == profile.id)
         )
         game_state = result.scalar_one_or_none()
-        
+
         if not game_state:
             raise HTTPException(status_code=404, detail="Game state not found")
-        
+
         # Get total count of decisions
         from sqlmodel import func
         count_result = await db_session.execute(
@@ -750,16 +765,16 @@ async def get_decision_history(
             .where(DecisionHistory.profile_id == profile.id)
         )
         total_decisions = count_result.scalar()
-        
+
         # Get decision history
         from utils import get_recent_decisions, create_decision_summary
-        
+
         decisions = await get_recent_decisions(
             profile_id=profile.id,
             db_session=db_session,
             limit=limit
         )
-        
+
         # Format decisions for response
         decision_list = []
         for d in decisions:
@@ -785,7 +800,7 @@ async def get_decision_history(
                     "social": d.social_after
                 }
             })
-        
+
         # Generate summary if needed
         summary = None
         if total_decisions > 10:
@@ -796,13 +811,13 @@ async def get_decision_history(
                 .order_by(DecisionHistory.step_number)
             )
             all_decisions = all_result.scalars().all()
-            
+
             summary = await create_decision_summary(
                 decisions=list(all_decisions),
                 current_age=game_state.current_age,
                 current_fi_score=game_state.fi_score
             )
-        
+
         return {
             "session_id": session_id,
             "total_decisions": total_decisions,
@@ -814,7 +829,7 @@ async def get_decision_history(
                 "step": game_state.current_step
             }
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -824,6 +839,7 @@ async def get_decision_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 @app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 async def process_decision(
     request: DecisionRequest,
@@ -844,35 +860,45 @@ async def process_decision(
 
     **Parameters:**
     - **session_id**: Current game session identifier
-    - **decision_index**: Index of the chosen decision option
+    - **chosen_option**: Text of chosen option
+    - **option_index**: Index of the chosen decision option (0-based)
 
     **Returns:** Updated game state, consequence narrative, and next decision options
     """
+    # === TIMING: Remove this line and all 'with timer()' blocks to disable ===
+    start_total = time.time()
+
     try:
         # Get player profile and game state
-        result = await db_session.execute(
-            select(PlayerProfile).where(
-                PlayerProfile.session_id == request.session_id)
-        )
-        profile = result.scalar_one_or_none()
+        with timer("1. DB: Fetch profile and game state"):
+            result = await db_session.execute(
+                select(PlayerProfile).where(
+                    PlayerProfile.session_id == request.session_id)
+            )
+            profile = result.scalar_one_or_none()
 
-        if not profile:
-            raise HTTPException(status_code=404, detail="Session not found")
+            if not profile:
+                raise HTTPException(
+                    status_code=404, detail="Session not found")
 
-        result = await db_session.execute(
-            select(GameState).where(GameState.profile_id == profile.id)
-        )
-        game_state = result.scalar_one_or_none()
+            result = await db_session.execute(
+                select(GameState).where(GameState.profile_id == profile.id)
+            )
+            game_state = result.scalar_one_or_none()
 
-        if not game_state:
-            raise HTTPException(status_code=404, detail="Game state not found")
+            if not game_state:
+                raise HTTPException(
+                    status_code=404, detail="Game state not found")
 
-        if game_state.game_status != GameStatus.ACTIVE:
-            raise HTTPException(status_code=400, detail="Game is not active")
+            if game_state.game_status != GameStatus.ACTIVE:
+                raise HTTPException(
+                    status_code=400, detail="Game is not active")
 
         # Apply monthly cash flow (only on phase 1 - start of month)
         from game_engine import apply_monthly_cash_flow, get_month_phase_name, get_current_month_name
-        cash_flow_data = apply_monthly_cash_flow(game_state)
+
+        with timer("2. Apply monthly cash flow"):
+            cash_flow_data = apply_monthly_cash_flow(game_state)
 
         # Log the monthly cash flow as a transaction (only if applied)
         if cash_flow_data.get("applied", False):
@@ -897,150 +923,103 @@ async def process_decision(
             )
             db_session.add(monthly_flow_log)
 
-        # Get the current event type for this step
-        current_event_type = get_event_type(game_state, profile)
-
-        # Generate curveball if needed
-        curveball = None
-        current_narrative = ""
-        if current_event_type == "curveball":
-            curveball = generate_curveball_event(game_state)
-            current_narrative = curveball["narrative"]
-        else:
-            # Generate narrative for current state to provide context for options
-            current_narrative = await generate_event_narrative(
-                event_type=current_event_type,
-                state=game_state,
-                profile=profile,
-                db_session=db_session,
-                curveball=curveball,
-                client=client
+        # Use the option data provided by the frontend
+        if not request.option_effects:
+            raise HTTPException(
+                status_code=400,
+                detail="option_effects is required. Frontend must send the full option data."
             )
 
-        # Generate dynamic options with AI
-        available_options = generate_dynamic_options(
-            event_type=current_event_type,
-            narrative=current_narrative,
-            state=game_state,
-            profile=profile,
-            client=client
-        )
+        chosen_option_data = request.option_effects
+        print(f"✅ Using frontend-provided option:")
+        print(f"  Text: {chosen_option_data.get('text', 'N/A')[:80]}")
+        print(
+            f"  Risk level: {chosen_option_data.get('risk_level', 'unknown')}")
+        print(f"  Category: {chosen_option_data.get('category', 'unknown')}")
 
-        # Extract option texts for recording
-        option_texts = [opt["text"] for opt in available_options]
+        # Extract event info from option data (for logging)
+        current_event_type = chosen_option_data.get('event_type', 'unknown')
+        current_narrative = chosen_option_data.get(
+            'narrative', request.chosen_option)
 
-        # Find the chosen option
-        # Note: With dynamic options, we primarily rely on option_index for matching
-        # since text can vary between regenerations
-        chosen_option_data = None
-        chosen_index = -1
-
-        print(f"🔍 OPTION MATCHING DEBUG:")
-        print(f"  Total available options: {len(available_options)}")
-        for i, opt in enumerate(available_options):
-            print(
-                f"  Option {i}: text='{opt.get('text', 'N/A')[:50]}...' explanation='{opt.get('explanation', 'N/A')[:50]}...'")
-
-        # If frontend sent an index, use it directly (most reliable)
-        if request.option_index is not None and 0 <= request.option_index < len(available_options):
-            chosen_option_data = available_options[request.option_index]
-            chosen_index = request.option_index
-        else:
-            # Fallback: try to match by text (less reliable with dynamic generation)
-            for i, text in enumerate(option_texts):
-                if text == request.chosen_option:
-                    chosen_option_data = available_options[i]
-                    chosen_index = i
-                    break
-
-        if not chosen_option_data:
-            print(f"❌ ERROR: Could not match option")
-            print(f"  Request option_index: {request.option_index}")
-            print(f"  Request chosen_option: {request.chosen_option}")
-            print(f"  Available options count: {len(available_options)}")
-            print(f"  Generated option texts: {option_texts}")
-            raise HTTPException(
-                status_code=400, detail=f"Invalid option chosen. Please use option index for reliable selection.")
-
-        # Store state before changes
-        money_before = game_state.money
-        investments_before = game_state.investments
-        fi_before = game_state.fi_score
-        energy_before = game_state.energy
-        motivation_before = game_state.motivation
-        social_before = game_state.social_life
+        # Store state BEFORE any changes
+        state_before = {
+            'money': game_state.money,
+            'investments': game_state.investments,
+            'fi_score': game_state.fi_score,
+            'energy': game_state.energy,
+            'motivation': game_state.motivation,
+            'social': game_state.social_life,
+            'knowledge': game_state.financial_knowledge
+        }
         step_number = game_state.current_step
 
-        # Apply decision effects and get transaction summary
-        effect = setup_dynamic_option_effect(chosen_option_data)
-
-        # Debug: Log chosen option details
-        print(f"📝 CHOSEN OPTION DEBUG:")
-        print(f"  Request option_index: {request.option_index}")
-        print(f"  Request chosen_option text: {request.chosen_option}")
-        print(f"  Matched option data:")
-        print(f"    - text: {chosen_option_data.get('text', 'N/A')}")
+        # Generate consequence narrative AND effects (AI determines what happens)
         print(
-            f"    - explanation: {chosen_option_data.get('explanation', 'N/A')}")
-        print(
-            f"    - money_change: {chosen_option_data.get('money_change', 0)}")
-
-        # Debug: Log effect details
-        print(f"💰 APPLYING EFFECTS:")
-        print(f"  Investment change: {effect.investment_change}")
-        print(f"  Money change: {effect.money_change}")
-        print(
-            f"  Before - Investments: {investments_before}, Money: {money_before}")
-
-        transaction_data = apply_decision_effects(game_state, effect)
-
-        print(
-            f"  After - Investments: {game_state.investments}, Money: {game_state.money}")
-
-        # Calculate life metrics changes
-        life_metrics_changes = LifeMetricsChanges(
-            energy_change=game_state.energy - energy_before,
-            motivation_change=game_state.motivation - motivation_before,
-            social_change=game_state.social_life - social_before,
-            knowledge_change=game_state.financial_knowledge -
-            game_state.financial_knowledge  # Knowledge change is in effect
-        )
-
-        # Get knowledge change from effect
-        if hasattr(effect, 'knowledge_change'):
-            life_metrics_changes.knowledge_change = effect.knowledge_change
-
-        # Generate consequence narrative
-        consequence = await generate_consequence_narrative(
+            f"\n🎲 Generating consequence with AI (risk level: {chosen_option_data.get('risk_level', 'unknown')})...")
+        consequence_result = await generate_consequence_narrative(
             chosen_option=request.chosen_option,
-            option_effect=chosen_option_data,
+            option_data=chosen_option_data,
             state=game_state,
             profile=profile,
+            event_narrative=current_narrative,
+            state_before=state_before,
             db_session=db_session,
             client=client
         )
 
-        # Generate learning moment (sometimes)
-        learning = generate_learning_moment(
-            chosen_option=request.chosen_option,
-            state=game_state,
-            profile=profile,
-            client=client
+        consequence = consequence_result['narrative']
+        effects_dict = consequence_result['effects']
+
+        print(f"📜 Consequence: {consequence[:100]}...")
+        print(f"💰 Effects from AI:")
+        print(f"  Money: {effects_dict.get('money_change', 0)}")
+        print(f"  Investments: {effects_dict.get('investment_change', 0)}")
+        print(f"  Debt: {effects_dict.get('debt_change', 0)}")
+
+        # NOW apply the effects that the AI determined
+        effect = setup_dynamic_option_effect(effects_dict)
+        transaction_data = apply_decision_effects(game_state, effect)
+
+        print(
+            f"  After effects - Money: {game_state.money}, Investments: {game_state.investments}")
+
+        # Calculate life metrics changes
+        life_metrics_changes = LifeMetricsChanges(
+            energy_change=game_state.energy - state_before['energy'],
+            motivation_change=game_state.motivation -
+            state_before['motivation'],
+            social_change=game_state.social_life - state_before['social'],
+            knowledge_change=game_state.financial_knowledge -
+            state_before['knowledge']
         )
+
+        # Generate learning moment (sometimes)
+        with timer("8. AI: Generate learning moment"):
+            learning = generate_learning_moment(
+                chosen_option=request.chosen_option,
+                state=game_state,
+                profile=profile,
+                client=client
+            )
+
+        # For options_presented, use what frontend sent (if available)
+        options_presented_texts = chosen_option_data.get(
+            'all_options', [request.chosen_option])
 
         # Record decision in history
         decision_record = DecisionHistory(
             profile_id=profile.id,
             step_number=step_number,
             event_type=current_event_type,
-            narrative=current_narrative,  # Store the event narrative
-            options_presented=[opt["text"] for opt in available_options],
+            narrative=current_narrative,
+            options_presented=options_presented_texts,
             chosen_option=request.chosen_option,
-            money_before=money_before,
-            fi_score_before=fi_before,
-            energy_before=energy_before,
-            motivation_before=motivation_before,
-            social_before=social_before,
+            money_before=state_before['money'],
+            fi_score_before=state_before['fi_score'],
+            energy_before=state_before['energy'],
+            motivation_before=state_before['motivation'],
+            social_before=state_before['social'],
             money_after=game_state.money,
             fi_score_after=game_state.fi_score,
             energy_after=game_state.energy,
@@ -1076,8 +1055,9 @@ async def process_decision(
         db_session.add(transaction_log)
 
         # Update game state in database
-        await db_session.commit()
-        await db_session.refresh(game_state)
+        with timer("9. DB: Commit and refresh"):
+            await db_session.commit()
+            await db_session.refresh(game_state)
 
         # NOTE: RAG decision indexing disabled for MVP (using SQLite DecisionHistory instead)
         # TODO (Future): When we have 100+ users, enable cross-player similarity search:
@@ -1085,7 +1065,7 @@ async def process_decision(
         #   - Use retrieve_similar_decisions() for "What did others do?" insights
         #   - Current approach: SQLite for personal history (fast, simple)
         #   - Future approach: RAG for cross-player patterns (semantic similarity)
-        # 
+        #
         # try:
         #     rag = get_rag_service()
         #     rag.index_player_decision(
@@ -1103,31 +1083,37 @@ async def process_decision(
         #     print(f"⚠️ Failed to index decision: {e}")
 
         # Generate next event
-        next_event_type = get_event_type(game_state, profile)
-        next_curveball = None
-        if next_event_type == "curveball":
-            next_curveball = generate_curveball_event(game_state)
+        with timer("10. AI: Generate next narrative"):
+            next_event_type = get_event_type(game_state, profile)
+            next_curveball = None
+            if next_event_type == "curveball":
+                next_curveball = generate_curveball_event(game_state)
 
-        # Generate next narrative
-        next_narrative = await generate_event_narrative(
-            event_type=next_event_type,
-            state=game_state,
-            profile=profile,
-            db_session=db_session,
-            curveball=next_curveball,
-            client=client
-        )
+            # Generate next narrative
+            next_narrative = await generate_event_narrative(
+                event_type=next_event_type,
+                state=game_state,
+                profile=profile,
+                db_session=db_session,
+                curveball=next_curveball,
+                client=client
+            )
 
         # Generate dynamic next options with AI
-        next_options_data = generate_dynamic_options(
-            event_type=next_event_type,
-            narrative=next_narrative,
-            state=game_state,
-            profile=profile,
-            client=client
-        )
+        with timer("11. AI: Generate next options"):
+            next_options_data = generate_dynamic_options(
+                event_type=next_event_type,
+                narrative=next_narrative,
+                state=game_state,
+                profile=profile,
+                client=client
+            )
 
-        next_options = [opt["text"] for opt in next_options_data]
+        # Add event context to each option for frontend to send back
+        for opt in next_options_data:
+            opt['event_type'] = next_event_type
+            opt['narrative'] = next_narrative
+            opt['all_options'] = [o['text'] for o in next_options_data]
 
         # Build updated state response
         updated_state = GameStateResponse(
@@ -1154,6 +1140,12 @@ async def process_decision(
 
         print(
             f"📤 RESPONSE - Investments being sent: {updated_state.investments}")
+
+        # === TIMING: Print total time ===
+        total_time = time.time() - start_total
+        print(f"\n⏱️  ========================================")
+        print(f"⏱️  TOTAL /api/step execution: {total_time:.3f}s")
+        print(f"⏱️  ========================================\n")
 
         # Create timestamp for transaction
         month_name = get_current_month_name(game_state.months_passed)
@@ -1194,7 +1186,7 @@ async def process_decision(
             consequence_narrative=consequence,
             updated_state=updated_state,
             next_narrative=next_narrative,
-            next_options=next_options,
+            next_options=next_options_data,  # Full option data with effects
             learning_moment=learning,
             transaction_summary=transaction_summary,
             monthly_cash_flow=monthly_cash_flow_summary,

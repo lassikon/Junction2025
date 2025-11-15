@@ -24,7 +24,7 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 async def retrieve_rag_context(
     query: str,
     profile_id: Optional[int] = None,
-    db_session = None,
+    db_session=None,
     current_age: Optional[int] = None,
     current_fi_score: Optional[float] = None,
     top_k: int = 5,
@@ -34,15 +34,15 @@ async def retrieve_rag_context(
 ) -> Optional[str]:
     """
     Retrieve context for narrative generation (REFACTORED for MVP).
-    
+
     Now uses:
     - RAG (ChromaDB) for financial concepts from PDFs (semantic search)
     - SQLite for player's own decision history (fast chronological retrieval)
-    
+
     Strategy: Retrieve more concepts (top_k=5), but guarantee at least min_concepts=3
     are included even if they don't meet min_score threshold. This ensures we always
     have some context while still filtering low-quality matches when we have better ones.
-    
+
     Args:
         query: Search query for financial concepts
         profile_id: Player profile ID for retrieving decision history
@@ -53,7 +53,7 @@ async def retrieve_rag_context(
         min_score: Minimum relevance score threshold for concepts (when > min_concepts)
         min_concepts: Minimum number of concepts to include regardless of score
         include_decisions: Whether to include player's decision history
-        
+
     Returns:
         Formatted context string with concepts and decision history, or None if nothing found
     """
@@ -61,11 +61,12 @@ async def retrieve_rag_context(
     print("🔍 CONTEXT RETRIEVAL (Financial Concepts + Decision History)")
     print("="*80)
     print(f"Query: {query}")
-    print(f"Parameters: top_k={top_k}, min_score={min_score}, min_concepts={min_concepts}, profile_id={profile_id}")
+    print(
+        f"Parameters: top_k={top_k}, min_score={min_score}, min_concepts={min_concepts}, profile_id={profile_id}")
     print("-"*80)
-    
+
     context_parts = []
-    
+
     # ==========================================
     # Part 1: Financial Concepts from RAG (PDFs)
     # ==========================================
@@ -73,41 +74,46 @@ async def retrieve_rag_context(
         from rag_service import get_rag_service
         rag = get_rag_service()
         print("✅ RAG service retrieved successfully")
-        
+
         # For learning moments, retrieve more concepts but ensure quality
         all_concepts = rag.retrieve_financial_concepts(
             query=query,
             top_k=5
         )
-        
+
         # Filter: take concepts above 0.4, but guarantee at least 3
-        concepts = [c for c in all_concepts if c['score'] >= 0.4] if all_concepts else []
+        concepts = [c for c in all_concepts if c['score']
+                    >= 0.4] if all_concepts else []
         if len(concepts) < 3 and all_concepts:
             concepts = all_concepts[:3]
-        
-        print(f"📊 Retrieved {len(concepts) if concepts else 0} financial concepts")
-        
+
+        print(
+            f"📊 Retrieved {len(concepts) if concepts else 0} financial concepts")
+
         if concepts:
             for i, c in enumerate(concepts, 1):
-                print(f"  {i}. {c['title']} - Score: {c['score']:.3f} - Source: {c.get('source', 'unknown')}")
-        
+                print(
+                    f"  {i}. {c['title']} - Score: {c['score']:.3f} - Source: {c.get('source', 'unknown')}")
+
         # Smart filtering: always include at least min_concepts, then apply threshold
         filtered_concepts = []
         if concepts:
             # First, take concepts that meet the threshold
             above_threshold = [c for c in concepts if c['score'] >= min_score]
-            
+
             if len(above_threshold) >= min_concepts:
                 # We have enough good concepts, use only those above threshold
                 filtered_concepts = above_threshold
-                print(f"✅ Using {len(filtered_concepts)} concepts above threshold (min_score={min_score})")
+                print(
+                    f"✅ Using {len(filtered_concepts)} concepts above threshold (min_score={min_score})")
             else:
                 # Not enough above threshold, take top min_concepts regardless of score
                 filtered_concepts = concepts[:min_concepts]
                 above_count = len(above_threshold)
                 below_count = len(filtered_concepts) - above_count
-                print(f"✅ Using {len(filtered_concepts)} concepts: {above_count} above threshold, {below_count} below (guaranteed minimum)")
-        
+                print(
+                    f"✅ Using {len(filtered_concepts)} concepts: {above_count} above threshold, {below_count} below (guaranteed minimum)")
+
         # Format retrieved concepts for prompt injection
         if filtered_concepts:
             concept_lines = []
@@ -118,16 +124,17 @@ async def retrieve_rag_context(
                     f"{score_marker} {i}. {concept['title']} (relevance: {concept['score']:.2f}) {source_info}\n"
                     f"   {concept['content'][:300]}{'...' if len(concept['content']) > 300 else ''}"
                 )
-            
-            context_parts.append("=== FINANCIAL KNOWLEDGE ===\n" + "\n\n".join(concept_lines))
+
+            context_parts.append(
+                "=== FINANCIAL KNOWLEDGE ===\n" + "\n\n".join(concept_lines))
         else:
             print(f"⚠️  No concepts retrieved")
-        
+
     except Exception as e:
         print(f"⚠️ RAG retrieval failed: {e}")
         import traceback
         traceback.print_exc()
-    
+
     # ==========================================
     # Part 2: Player Decision History from SQLite
     # ==========================================
@@ -135,9 +142,9 @@ async def retrieve_rag_context(
         try:
             print("\n" + "-"*80)
             print("🕐 Retrieving player decision history from SQLite...")
-            
+
             from utils import get_decision_context_for_llm
-            
+
             decision_context = await get_decision_context_for_llm(
                 profile_id=profile_id,
                 db_session=db_session,
@@ -145,24 +152,25 @@ async def retrieve_rag_context(
                 current_fi_score=current_fi_score or 0.0,
                 max_recent=3
             )
-            
+
             if decision_context and decision_context != "This is the start of the player's journey.":
                 context_parts.append(decision_context)
-                print(f"✅ Added player decision history ({len(decision_context)} chars)")
+                print(
+                    f"✅ Added player decision history ({len(decision_context)} chars)")
             else:
                 print(f"ℹ️  No decision history yet (new player)")
-                
+
         except Exception as e:
             print(f"⚠️ Decision history retrieval failed: {e}")
             import traceback
             traceback.print_exc()
-    
+
     # Return combined context or None if nothing was found
     if not context_parts:
         print(f"ℹ️  No relevant context found")
         print("="*80 + "\n")
         return None
-    
+
     result = "\n\n".join(context_parts)
     print(f"📝 Total context: {len(result)} characters")
     print("="*80 + "\n")
@@ -207,7 +215,7 @@ async def generate_event_narrative(
     event_type: str,
     state: GameState,
     profile: PlayerProfile,
-    db_session = None,
+    db_session=None,
     curveball: Optional[Dict] = None,
     client: Optional[genai.Client] = None
 ) -> str:
@@ -249,14 +257,16 @@ async def generate_event_narrative(
             min_concepts=3,
             include_decisions=True
         )
-        
+
         if rag_context:
-            print(f"✅ Context WILL BE INJECTED into {event_type} narrative prompt")
+            print(
+                f"✅ Context WILL BE INJECTED into {event_type} narrative prompt")
         else:
             print(f"ℹ️  No context - proceeding with standard prompt")
         print("#"*80 + "\n")
-        
-        prompt = build_narrative_prompt(event_type, state, profile, curveball, rag_context)
+
+        prompt = build_narrative_prompt(
+            event_type, state, profile, curveball, rag_context)
 
         print("\n" + "="*80)
         print(f"🤖 GEMINI API CALL - Event Narrative ({event_type})")
@@ -283,38 +293,57 @@ async def generate_event_narrative(
 
 async def generate_consequence_narrative(
     chosen_option: str,
-    option_effect: Dict,
+    option_data: Dict,
     state: GameState,
     profile: PlayerProfile,
-    db_session = None,
+    event_narrative: str,
+    state_before: Dict,
+    db_session=None,
     client: Optional[genai.Client] = None
-) -> str:
+) -> Dict:
     """
-    Generate consequence narrative after a decision using AI.
+    Generate consequence narrative AND effects after a decision using AI.
 
     Args:
-        chosen_option: The option the player chose
-        option_effect: Effect details
-        state: Updated game state
+        chosen_option: The option text the player chose
+        option_data: Option metadata (risk_level, category)
+        state: Current game state (BEFORE applying effects)
         profile: Player profile
-        db_session: AsyncSession for database access (required for decision history)
+        event_narrative: The original event narrative
+        state_before: Dict with money_before, investments_before, etc.
+        db_session: AsyncSession for database access
         client: Gemini client (optional)
 
     Returns:
-        Consequence narrative text
+        Dict with 'narrative' and 'effects' keys
     """
     if client is None:
         client = get_ai_client()
 
     if client is None:
-        return option_effect.get("explanation", "You made your choice.")
+        # Fallback: return empty effects
+        return {
+            "narrative": "You made your choice.",
+            "effects": {
+                "money_change": 0,
+                "investment_change": 0,
+                "debt_change": 0,
+                "income_change": 0,
+                "expense_change": 0,
+                "passive_income_change": 0,
+                "energy_change": 0,
+                "motivation_change": 0,
+                "social_change": 0,
+                "knowledge_change": 0
+            }
+        }
 
     try:
-        # RAG-ENHANCED: Retrieve context about the consequences of this decision type
+        # RAG-ENHANCED: Retrieve context about similar decisions
         print("\n" + "#"*80)
-        print(f"💥 CONSEQUENCE NARRATIVE GENERATION - Context Retrieval")
+        print(f"💥 CONSEQUENCE GENERATION - Context Retrieval")
         print("#"*80)
-        rag_query = f"{chosen_option}. Consequence of financial decision. Age {state.current_age}, FI score {state.fi_score:.1f}%"
+        rag_query = f"{chosen_option}. {option_data.get('category', 'financial')} decision. Risk: {option_data.get('risk_level', 'medium')}"
         rag_context = await retrieve_rag_context(
             query=rag_query,
             profile_id=profile.id,
@@ -326,18 +355,18 @@ async def generate_consequence_narrative(
             min_concepts=3,
             include_decisions=True
         )
-        
+
         if rag_context:
-            print(f"✅ Context WILL BE INJECTED into consequence narrative prompt")
+            print(f"✅ Context WILL BE INJECTED into consequence prompt")
         else:
             print(f"ℹ️  No context - proceeding with standard prompt")
         print("#"*80 + "\n")
-        
+
         prompt = build_consequence_prompt(
-            chosen_option, option_effect, state, profile, rag_context)
+            chosen_option, option_data, state, profile, event_narrative, state_before, rag_context)
 
         print("\n" + "="*80)
-        print("🤖 GEMINI API CALL - Consequence Narrative")
+        print("🤖 GEMINI API CALL - Consequence Generation")
         print("="*80)
         print("PROMPT:")
         print(prompt)
@@ -352,11 +381,40 @@ async def generate_consequence_narrative(
         print(response.text.strip())
         print("="*80 + "\n")
 
-        return response.text.strip()
+        # Parse JSON response
+        import json
+        response_text = response.text.strip()
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+
+        result = json.loads(response_text.strip())
+        return result
 
     except Exception as e:
         print(f"AI consequence generation failed: {e}")
-        return option_effect.get("explanation", "You made your choice.")
+        import traceback
+        traceback.print_exc()
+        # Fallback
+        return {
+            "narrative": "You made your choice and experienced the consequences.",
+            "effects": {
+                "money_change": 0,
+                "investment_change": 0,
+                "debt_change": 0,
+                "income_change": 0,
+                "expense_change": 0,
+                "passive_income_change": 0,
+                "energy_change": 0,
+                "motivation_change": 0,
+                "social_change": 0,
+                "knowledge_change": 5  # At least gain some knowledge
+            }
+        }
 
 
 def generate_learning_moment(
@@ -391,46 +449,50 @@ def generate_learning_moment(
         # Retrieve relevant financial concepts
         difficulty = "beginner" if state.financial_knowledge < 50 else "intermediate"
         print(f"📊 Difficulty filter: {difficulty}")
-        
+
         # Retrieve more concepts and apply smart filtering
         all_concepts = rag.retrieve_financial_concepts(
             query=query,
             difficulty_filter=difficulty,
             top_k=5
         )
-        
+
         # Filter: take concepts above 0.4, but guarantee at least 3
-        concepts = [c for c in all_concepts if c['score'] >= 0.4] if all_concepts else []
+        concepts = [c for c in all_concepts if c['score']
+                    >= 0.4] if all_concepts else []
         if len(concepts) < 3 and all_concepts:
             concepts = all_concepts[:3]
-        
+
         print(f"📚 Retrieved {len(concepts) if concepts else 0} concepts")
         if concepts:
             for i, concept in enumerate(concepts, 1):
                 score_marker = "⭐" if concept['score'] >= 0.4 else "📌"
-                print(f"  {score_marker} {i}. {concept['title']} - Score: {concept['score']:.3f}")
+                print(
+                    f"  {score_marker} {i}. {concept['title']} - Score: {concept['score']:.3f}")
 
         # Only generate if we found relevant concepts (score > 0.7 for best match)
         if not concepts or len(concepts) == 0:
             print(f"⚠️  No concepts retrieved")
             print("#"*80 + "\n")
             return None  # No relevant tip available
-        
+
         if concepts[0]['score'] < 0.7:
-            print(f"⚠️  No concepts above threshold 0.7 (best: {concepts[0]['score']:.3f})")
+            print(
+                f"⚠️  No concepts above threshold 0.7 (best: {concepts[0]['score']:.3f})")
             print("#"*80 + "\n")
             return None  # No relevant tip available
-        
+
         print(f"✅ Using concept with score {concepts[0]['score']:.3f}")
         print("#"*80 + "\n")
-        
-        if client is None:  
+
+        if client is None:
             client = get_ai_client()
 
         if client is None:
             return None
-        
-        print(f"🔎 Using concept for learning moment: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
+
+        print(
+            f"🔎 Using concept for learning moment: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
         # Build enhanced prompt with retrieved context
         prompt = f"""You are a friendly financial education coach. Provide a brief, practical tip.
 
@@ -546,21 +608,21 @@ def generate_option_texts(
         print("#"*80)
         rag_query = f"{event_type} financial decision options. Age {state.current_age}, FI score {state.fi_score:.1f}%, income €{state.monthly_income}"
         rag_context = retrieve_rag_context(
-            rag_query, 
-            top_k=2, 
+            rag_query,
+            top_k=2,
             min_score=0.4,
             session_id=getattr(profile, 'session_id', None),
             age=state.current_age,
             education=profile.education_path.value,
             include_decisions=True
         )
-        
+
         if rag_context:
             print(f"✅ RAG context WILL BE INJECTED into option texts prompt")
         else:
             print(f"ℹ️  No RAG context - proceeding with standard prompt")
         print("#"*80 + "\n")
-        
+
         # Build prompt for option generation
         options_context = "\n".join([
             f"{i+1}. {opt['explanation']}"
@@ -590,7 +652,7 @@ RELEVANT FINANCIAL KNOWLEDGE & PLAYER HISTORY:
 
 Frame the options using this knowledge to make them educational. If past decisions are included, consider how they might inform the current choice (e.g., building on previous success or avoiding past mistakes).
 """
-        
+
         prompt = f"""{OPTIONS_PROMPTS['system_context']}
 
 {template_filled}
@@ -727,7 +789,7 @@ Current Situation (Step {state.current_step}):
             event_type=event_type,
             description=description
         )
-    
+
     # Add RAG-retrieved knowledge if available
     rag_section = ""
     if rag_context:
@@ -749,13 +811,18 @@ Task: {event_prompt}
 
 def build_consequence_prompt(
     chosen_option: str,
-    option_effect: Dict,
+    option_data: Dict,
     state: GameState,
     profile: PlayerProfile,
+    event_narrative: str,
+    state_before: Dict,
     rag_context: Optional[str] = None
 ) -> str:
-    """Build prompt for consequence narrative generation (RAG-enhanced)"""
-    
+    """Build prompt for consequence generation (narrative + effects)"""
+
+    # Reload prompts to pick up changes
+    prompts = get_prompts("consequence_prompt.json")
+
     # Add RAG-retrieved knowledge if available
     rag_section = ""
     if rag_context:
@@ -763,24 +830,37 @@ def build_consequence_prompt(
 RELEVANT FINANCIAL KNOWLEDGE & PLAYER HISTORY:
 {rag_context}
 
-Ground your consequence narrative in this knowledge. If past decisions are shown, acknowledge patterns in the player's behavior (e.g., "This is similar to when you..."). Make the outcome educational and personalized.
+Ground your consequence in this knowledge. Consider the player's past patterns and make the outcome realistic and educational.
 """
 
-    prompt_content = CONSEQUENCE_PROMPTS['template'].format(
+    prompt_content = prompts['template'].format(
+        player_name=profile.player_name,
+        current_age=state.current_age,
+        city=profile.city,
+        education=profile.education_path,
+        risk_attitude=profile.risk_attitude,
+        money_before=state_before['money'],
+        monthly_income=state.monthly_income,
+        monthly_expenses=state.monthly_expenses,
+        investments_before=state_before['investments'],
+        passive_income=state.passive_income,
+        debts=state.debts,
+        fi_score_before=state_before['fi_score'],
+        energy_before=state_before['energy'],
+        motivation_before=state_before['motivation'],
+        social_before=state_before['social'],
+        knowledge_before=state_before['knowledge'],
         chosen_option=chosen_option,
-        explanation=option_effect.get('explanation', ''),
-        money=state.money,
-        fi_score=state.fi_score,
-        energy=state.energy,
-        motivation=state.motivation,
-        social_life=state.social_life
+        risk_level=option_data.get('risk_level', 'medium'),
+        category=option_data.get('category', 'financial'),
+        event_narrative=event_narrative
     )
 
-    return f"""{CONSEQUENCE_PROMPTS['system_context']}
+    return f"""{prompts['system_context']}
 {rag_section}
 {prompt_content}
 
-{CONSEQUENCE_PROMPTS['instruction']}"""
+{prompts['format_instruction']}"""
 
 
 def get_fallback_narrative(

@@ -279,17 +279,11 @@ def get_event_type(state: GameState, profile: PlayerProfile) -> str:
 
     # Phase 1 (Early Month): Budget planning and major financial decisions
     if phase == 1:
-        # First month special events
-        if state.months_passed == 0:
-            return "first_paycheck"
-        elif state.months_passed == 1:
-            return "savings_decision"
-
         # Check for debt
         if state.debts > state.monthly_income * 2:
             return "debt_payment_plan"
 
-        # Regular phase 1 events
+        # Regular phase 1 events (removed first_paycheck special handling)
         return random.choice(PHASE_1_EVENTS)
 
     # Phase 2 & 3 (Mid/Late Month): Smaller daily events and spending decisions
@@ -441,9 +435,8 @@ def create_decision_options(event_type: str, state: GameState, curveball: Option
     if event_type == "curveball" and curveball:
         return create_curveball_options(curveball, state)
 
-    # Event-specific option generators
+    # Event-specific option generators (removed first_paycheck - no longer used)
     option_generators = {
-        "first_paycheck": create_first_paycheck_options,
         "budget_decision": create_budget_options,
         "emergency_fund": create_emergency_fund_options,
         "investment_opportunity": create_investment_options,
