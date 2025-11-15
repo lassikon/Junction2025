@@ -177,21 +177,21 @@ async def register(
 ):
     """
     Register a new user account
-    
+
     Creates a new account with hashed password and returns an auth token.
-    
+
     **Process:**
     1. Validates username is unique
     2. Hashes password with bcrypt
     3. Creates account record
     4. Generates session token
     5. Returns token and account info
-    
+
     **Parameters:**
     - **username**: Unique username (3-50 chars)
     - **password**: Password (min 6 chars)
     - **display_name**: Display name (1-100 chars)
-    
+
     **Returns:** Auth token and account information
     """
     try:
@@ -200,13 +200,14 @@ async def register(
             select(Account).where(Account.username == request.username.lower())
         )
         existing_account = result.scalar_one_or_none()
-        
+
         if existing_account:
-            raise HTTPException(status_code=400, detail="Username already taken")
-        
+            raise HTTPException(
+                status_code=400, detail="Username already taken")
+
         # Hash password
         password_hash = hash_password(request.password)
-        
+
         # Create account
         account = Account(
             username=request.username.lower(),
@@ -214,17 +215,18 @@ async def register(
             display_name=request.display_name,
             has_completed_onboarding=False
         )
-        
+
         db_session.add(account)
         await db_session.flush()
-        
+
         # Create session token
         token = await create_session_token(account.id, db_session)
-        
+
         await db_session.commit()
-        
-        print(f"✅ Registered new account: {account.username} (ID: {account.id})")
-        
+
+        print(
+            f"✅ Registered new account: {account.username} (ID: {account.id})")
+
         return AuthResponse(
             token=token,
             account_id=account.id,
@@ -232,14 +234,15 @@ async def register(
             display_name=account.display_name,
             has_completed_onboarding=account.has_completed_onboarding
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         await db_session.rollback()
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error creating account: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error creating account: {str(e)}")
 
 
 @app.post("/api/auth/login", response_model=AuthResponse, tags=["Authentication"])
@@ -249,13 +252,13 @@ async def login(
 ):
     """
     Login to existing account
-    
+
     Validates credentials and returns an auth token.
-    
+
     **Parameters:**
     - **username**: Account username
     - **password**: Account password
-    
+
     **Returns:** Auth token and account information
     """
     try:
@@ -264,24 +267,26 @@ async def login(
             select(Account).where(Account.username == request.username.lower())
         )
         account = result.scalar_one_or_none()
-        
+
         if not account:
-            raise HTTPException(status_code=401, detail="Invalid username or password")
-        
+            raise HTTPException(
+                status_code=401, detail="Invalid username or password")
+
         # Verify password
         if not verify_password(request.password, account.password_hash):
-            raise HTTPException(status_code=401, detail="Invalid username or password")
-        
+            raise HTTPException(
+                status_code=401, detail="Invalid username or password")
+
         # Update last login
         account.last_login = datetime.utcnow()
-        
+
         # Create session token
         token = await create_session_token(account.id, db_session)
-        
+
         await db_session.commit()
-        
+
         print(f"✅ User logged in: {account.username} (ID: {account.id})")
-        
+
         return AuthResponse(
             token=token,
             account_id=account.id,
@@ -289,14 +294,15 @@ async def login(
             display_name=account.display_name,
             has_completed_onboarding=account.has_completed_onboarding
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         await db_session.rollback()
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error during login: {str(e)}")
 
 
 @app.post("/api/auth/logout", tags=["Authentication"])
@@ -306,37 +312,39 @@ async def logout(
 ):
     """
     Logout and invalidate current session token
-    
+
     **Headers:**
     - **Authorization**: Bearer {token}
-    
+
     **Returns:** Success message
     """
     try:
         # Parse token
         parts = authorization.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Invalid authorization header")
-        
+            raise HTTPException(
+                status_code=401, detail="Invalid authorization header")
+
         token = parts[1]
-        
+
         # Find and deactivate token
         result = await db_session.execute(
             select(SessionToken).where(SessionToken.token == token)
         )
         session_token = result.scalar_one_or_none()
-        
+
         if session_token:
             session_token.is_active = False
             await db_session.commit()
-        
+
         return {"message": "Logged out successfully"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
         await db_session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error during logout: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error during logout: {str(e)}")
 
 
 @app.get("/api/account/profile", response_model=AccountProfileResponse, tags=["Account"])
@@ -346,24 +354,25 @@ async def get_account_profile(
 ):
     """
     Get current account profile and onboarding defaults
-    
+
     Requires authentication.
-    
+
     **Headers:**
     - **Authorization**: Bearer {token}
-    
+
     **Returns:** Account profile with onboarding defaults
     """
     # Parse and validate token
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
-    
+        raise HTTPException(
+            status_code=401, detail="Invalid authorization header")
+
     token = parts[1]
     account = await validate_token(token, db_session)
     if not account:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
+
     return AccountProfileResponse(
         account_id=account.id,
         username=account.username,
@@ -390,26 +399,28 @@ async def update_onboarding_defaults(
 ):
     """
     Update account onboarding defaults
-    
+
     Saves onboarding data to account so user doesn't have to fill it out again.
-    
+
     **Headers:**
     - **Authorization**: Bearer {token}
-    
+
     **Parameters:** Onboarding data (see UpdateOnboardingDefaultsRequest)
-    
+
     **Returns:** Success message
     """
     try:
         # Parse and validate token
         parts = authorization.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Invalid authorization header")
-        
+            raise HTTPException(
+                status_code=401, detail="Invalid authorization header")
+
         token = parts[1]
         account = await validate_token(token, db_session)
         if not account:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+            raise HTTPException(
+                status_code=401, detail="Invalid or expired token")
         account.default_age = request.age
         account.default_city = request.city
         account.default_education_path = request.education_path
@@ -420,16 +431,17 @@ async def update_onboarding_defaults(
         account.default_starting_debt = request.starting_debt
         account.default_aspirations = request.aspirations
         account.has_completed_onboarding = True
-        
+
         await db_session.commit()
-        
+
         print(f"✅ Updated onboarding defaults for account: {account.username}")
-        
+
         return {"message": "Onboarding defaults updated successfully"}
-        
+
     except Exception as e:
         await db_session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error updating defaults: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error updating defaults: {str(e)}")
 
 
 @app.post("/api/chat", response_model=ChatResponse, tags=["Chat"])
@@ -728,7 +740,7 @@ async def create_player(
     Create a new player profile and start the game
 
     This is the first endpoint called when starting a new game.
-    
+
     **Supports:**
     - Authenticated users (with Authorization header) - links to account
     - Guest/test mode (no header) - creates anonymous session
@@ -748,7 +760,7 @@ async def create_player(
         # Check if authenticated (optional)
         account = None
         is_test_mode = True  # Default to test mode
-        
+
         if authorization:
             # Try to get account - parse token
             parts = authorization.split()
@@ -757,15 +769,16 @@ async def create_player(
                 account = await validate_token(token, session)
             else:
                 account = None
-            
+
             if account:
                 is_test_mode = False  # Authenticated = not test mode
-                print(f"🔐 Authenticated user starting game: {account.username}")
+                print(
+                    f"🔐 Authenticated user starting game: {account.username}")
             else:
                 print(f"👤 Guest user starting game (test mode)")
         else:
             print(f"👤 Guest user starting game (test mode)")
-        
+
         # Generate unique session ID
         session_id = generate_session_id()
 
@@ -786,7 +799,7 @@ async def create_player(
 
         session.add(profile)
         await session.flush()  # Get the profile ID
-        
+
         # If authenticated and first onboarding, save as defaults
         if account and not account.has_completed_onboarding:
             account.default_age = request.age
@@ -799,7 +812,8 @@ async def create_player(
             account.default_starting_debt = request.starting_debt
             account.default_aspirations = request.aspirations
             account.has_completed_onboarding = True
-            print(f"✅ Saved onboarding defaults for account: {account.username}")
+            print(
+                f"✅ Saved onboarding defaults for account: {account.username}")
 
         # Initialize game state
         initial_state = initialize_game_state(
@@ -1020,14 +1034,15 @@ async def get_leaderboard(
     """
     try:
         # Build query
-        query = select(LeaderboardEntry).order_by(LeaderboardEntry.final_fi_score.desc())
-        
+        query = select(LeaderboardEntry).order_by(
+            LeaderboardEntry.final_fi_score.desc())
+
         # Filter out test mode by default
         if not include_test_mode:
             query = query.where(LeaderboardEntry.is_test_mode == False)
-        
+
         query = query.limit(limit)
-        
+
         result = await session.execute(query)
         entries = result.scalars().all()
 
@@ -1481,7 +1496,7 @@ async def process_decision(
         phase_name = get_month_phase_name(game_state.month_phase)
         timestamp = f"{phase_name} {month_name[:3]}"  # e.g., "Early Jan"
 
-        # Create transaction summary for response
+        # Create transaction summary for the player's decision
         transaction_summary = TransactionSummary(
             cash_change=transaction_data["cash_change"],
             investment_change=transaction_data["investment_change"],
@@ -1498,6 +1513,26 @@ async def process_decision(
             description=transaction_data["description"],
             timestamp=timestamp
         )
+
+        # Create monthly cash flow transaction (if applied this step)
+        monthly_flow_transaction = None
+        if cash_flow_data.get("applied", False):
+            monthly_flow_transaction = TransactionSummary(
+                cash_change=cash_flow_data["cash_change"],
+                investment_change=0.0,
+                debt_change=cash_flow_data.get("debt_from_deficit", 0.0),
+                monthly_income_change=0.0,
+                monthly_expense_change=0.0,
+                passive_income_change=0.0,
+                cash_balance=cash_flow_data["cash_balance"],
+                investment_balance=game_state.investments,
+                debt_balance=game_state.debts,
+                monthly_income_total=game_state.monthly_income,
+                monthly_expense_total=game_state.monthly_expenses,
+                passive_income_total=game_state.passive_income,
+                description=f"New month: Income €{cash_flow_data['income_received']:.0f} - Expenses €{cash_flow_data['expenses_paid']:.0f}",
+                timestamp=timestamp
+            )
 
         # Create monthly cash flow summary for response
         monthly_cash_flow_summary = MonthlyCashFlowSummary(
@@ -1518,6 +1553,7 @@ async def process_decision(
             next_options=next_options_data,  # Full option data with effects
             learning_moment=learning,
             transaction_summary=transaction_summary,
+            monthly_flow_transaction=monthly_flow_transaction,
             monthly_cash_flow=monthly_cash_flow_summary,
             life_metrics_changes=life_metrics_changes
         )

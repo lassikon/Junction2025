@@ -58,7 +58,12 @@ const GamePage = () => {
       // Close decision modal
       closeDecisionModal();
 
-      // Add transaction to history
+      // Add monthly flow transaction first (if present)
+      if (result.monthly_flow_transaction) {
+        addTransaction(result.monthly_flow_transaction);
+      }
+
+      // Add decision transaction to history
       if (result.transaction_summary) {
         addTransaction(result.transaction_summary);
       }
