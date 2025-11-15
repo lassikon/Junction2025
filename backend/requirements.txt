@@ -10,3 +10,9 @@ sqlmodel>=0.0.22
 aiosqlite>=0.20.0
 greenlet>=3.0.0
 alembic==1.13.0
+
+# RAG System Dependencies
+chromadb>=0.4.22
+langchain>=0.1.0
+langchain-community>=0.0.20
+pymupdf>=1.23.0

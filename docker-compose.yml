@@ -33,9 +33,24 @@ services:
     networks:
       - hackathon-network
 
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: hackathon-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+    networks:
+      - hackathon-network
+
 networks:
   hackathon-network:
     driver: bridge
 
 volumes:
   frontend_node_modules:
+  chromadb_data:

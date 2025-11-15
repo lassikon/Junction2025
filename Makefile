@@ -17,13 +17,13 @@ help:
 	@echo "  make db-history                - Show migration history"
 
 up:
-	docker-compose up -d
+	docker-compose up
 
 down:
 	docker-compose down
 
 build:
-	docker-compose up --build -d
+	docker-compose up --build
 
 restart:
 	docker-compose restart

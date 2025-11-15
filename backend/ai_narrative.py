@@ -157,7 +157,7 @@ def generate_learning_moment(
     client: Optional[genai.Client] = None
 ) -> Optional[str]:
     """
-    Generate an educational insight based on the decision.
+    Generate an educational insight based on the decision (RAG-enhanced).
 
     Args:
         chosen_option: The option chosen
@@ -168,34 +168,57 @@ def generate_learning_moment(
     Returns:
         Learning moment text or None
     """
-    # Only generate learning moments occasionally (30% chance)
-    import random
-    if random.random() > 0.3:
-        return None
-
-    if client is None:
-        client = get_ai_client()
-
-    if client is None:
-        return None
-
+    # RAG-ENHANCED: Retrieve relevant concepts instead of random chance
     try:
-        # Build prompt from template
-        prompt = f"""{LEARNING_PROMPTS['system_context']} {LEARNING_PROMPTS['template'].format(
-            chosen_option=chosen_option,
-            fi_score=state.fi_score,
-            money=state.money,
-            monthly_income=state.monthly_income,
-            investments=state.investments,
-            debts=state.debts,
-            financial_knowledge=state.financial_knowledge
-        )}
+        from rag_service import get_rag_service
+        rag = get_rag_service()
+        
+        # Build query from context
+        query = f"{chosen_option}. Age {state.current_age}, FI score {state.fi_score:.1f}%, financial knowledge {state.financial_knowledge}/100"
+        
+        # Retrieve relevant financial concepts
+        difficulty = "beginner" if state.financial_knowledge < 50 else "intermediate"
+        concepts = rag.retrieve_financial_concepts(
+            query=query,
+            difficulty_filter=difficulty,
+            top_k=2
+        )
+        
+        # Only generate if we found relevant concepts (score > 0.7)
+        if not concepts or concepts[0]['score'] < 0.7:
+            return None  # No relevant tip available
+        
+        if client is None:
+            client = get_ai_client()
+        
+        if client is None:
+            return None
+        
+        # Build enhanced prompt with retrieved context
+        prompt = f"""You are a friendly financial education coach. Provide a brief, practical tip.
 
-{LEARNING_PROMPTS['instruction']}"""
+RETRIEVED FINANCIAL CONCEPT:
+{concepts[0]['content']}
+
+PLAYER CONTEXT:
+- Age: {state.current_age}
+- FI Score: {state.fi_score:.1f}%
+- Money: €{state.money:,.0f}
+- Investments: €{state.investments:,.0f}
+- Debts: €{state.debts:,.0f}
+- Income: €{state.monthly_income:,.0f}/month
+- Financial Knowledge: {state.financial_knowledge}/100
+
+RECENT DECISION:
+{chosen_option}
+
+Provide a 1-2 sentence tip related to the retrieved concept, tailored to their situation.
+Be encouraging and practical. Make it actionable."""
 
         print("\n" + "="*80)
-        print("🤖 GEMINI API CALL - Learning Moment")
+        print("🤖 GEMINI API CALL - Learning Moment (RAG-Enhanced)")
         print("="*80)
+        print(f"📚 Retrieved concept: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
         print("PROMPT:")
         print(prompt)
         print("\n" + "-"*80)
@@ -205,15 +228,50 @@ def generate_learning_moment(
             contents=prompt
         )
 
+        tip = response.text.strip()
         print("RESPONSE:")
-        print(response.text.strip())
+        print(tip)
         print("="*80 + "\n")
-
-        return response.text.strip()
-
+        
+        return tip
+        
     except Exception as e:
-        print(f"Learning moment generation failed: {e}")
-        return None
+        print(f"⚠️ RAG learning moment failed: {e}")
+        # Fallback to original 30% random logic
+        import random
+        if random.random() > 0.7:
+            return None
+        
+        if client is None:
+            client = get_ai_client()
+        
+        if client is None:
+            return None
+        
+        try:
+            # Original prompt without RAG
+            prompt = f"""{LEARNING_PROMPTS['system_context']} {LEARNING_PROMPTS['template'].format(
+                chosen_option=chosen_option,
+                fi_score=state.fi_score,
+                money=state.money,
+                monthly_income=state.monthly_income,
+                investments=state.investments,
+                debts=state.debts,
+                financial_knowledge=state.financial_knowledge
+            )}
+
+{LEARNING_PROMPTS['instruction']}"""
+
+            response = client.models.generate_content(
+                model="gemini-2.0-flash-exp",
+                contents=prompt
+            )
+            
+            return response.text.strip()
+            
+        except Exception as e2:
+            print(f"Learning moment generation failed: {e2}")
+            return None
 
 
 def generate_option_texts(

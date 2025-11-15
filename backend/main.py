@@ -23,6 +23,8 @@ from ai_narrative import (
     generate_event_narrative, generate_consequence_narrative,
     generate_learning_moment, generate_option_texts
 )
+from rag_service import RAGService, get_rag_service
+import rag_service as rag_module
 
 load_dotenv()
 
@@ -36,6 +38,16 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting up LifeSim API...")
     await init_db()
+    
+    # Initialize RAG service
+    try:
+        rag_module.rag_service = RAGService(chroma_host="chromadb", chroma_port=8000)
+        print("✅ RAG Service initialized")
+    except Exception as e:
+        print(f"⚠️ RAG Service failed to initialize: {e}")
+        print("   Game will continue without RAG-enhanced learning moments")
+        rag_module.rag_service = None
+    
     yield
     # Shutdown
     print("👋 Shutting down LifeSim API...")
@@ -515,6 +527,11 @@ async def process_decision(
                         break
 
         if not chosen_option_data:
+            print(f"❌ ERROR: Could not match option")
+            print(f"  Request option_index: {request.option_index}")
+            print(f"  Request chosen_option: {request.chosen_option}")
+            print(f"  Available options count: {len(available_options)}")
+            print(f"  Generated option texts: {option_texts}")
             raise HTTPException(
                 status_code=400, detail=f"Invalid option chosen: {request.chosen_option}")
 
@@ -586,6 +603,24 @@ async def process_decision(
         # Update game state in database
         await db_session.commit()
         await db_session.refresh(game_state)
+
+        # RAG-ENHANCED: Index this decision for future retrieval
+        try:
+            rag = get_rag_service()
+            rag.index_player_decision(
+                session_id=request.session_id,
+                step=step_number,
+                event_type=current_event_type,
+                chosen_option=request.chosen_option,
+                consequence=consequence,
+                fi_score=game_state.fi_score,
+                age=game_state.current_age,
+                education=profile.education_path
+            )
+            print(f"✅ Indexed decision for RAG (step {step_number})")
+        except Exception as e:
+            print(f"⚠️ Failed to index decision: {e}")
+            # Non-fatal error, continue game flow
 
         # Generate next event
         next_event_type = get_event_type(game_state, profile)

@@ -4,7 +4,13 @@ import "../styles/ChoiceList.css";
 /**
  * ChoiceList - Modal displaying narrative and decision options
  */
-const ChoiceList = ({ narrative, options, onChoose, onClose, isProcessing }) => {
+const ChoiceList = ({
+  narrative,
+  options,
+  onChoose,
+  onClose,
+  isProcessing,
+}) => {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -24,7 +30,7 @@ const ChoiceList = ({ narrative, options, onChoose, onClose, isProcessing }) => 
               <button
                 key={index}
                 className="option-button"
-                onClick={() => onChoose(option)}
+                onClick={() => onChoose(option, index)}
                 disabled={isProcessing}
               >
                 {isProcessing ? "Processing..." : option}
@@ -35,11 +41,6 @@ const ChoiceList = ({ narrative, options, onChoose, onClose, isProcessing }) => 
       </div>
     </div>
   );
-<<<<<<< HEAD
-}
-=======
 };
->>>>>>> 07a8dd731f5954a91b61520192a2a98331767bf8
 
 export default ChoiceList;
-
