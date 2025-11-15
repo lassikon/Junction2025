@@ -21,6 +21,134 @@ from models import PlayerProfile, GameState, RiskAttitude, EducationPath
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
+async def retrieve_rag_context(
+    query: str,
+    profile_id: Optional[int] = None,
+    db_session = None,
+    current_age: Optional[int] = None,
+    current_fi_score: Optional[float] = None,
+    top_k: int = 2,
+    min_score: float = 0.5,
+    include_decisions: bool = True
+) -> Optional[str]:
+    """
+    Retrieve context for narrative generation (REFACTORED for MVP).
+    
+    Now uses:
+    - RAG (ChromaDB) for financial concepts from PDFs (semantic search)
+    - SQLite for player's own decision history (fast chronological retrieval)
+    
+    Args:
+        query: Search query for financial concepts
+        profile_id: Player profile ID for retrieving decision history
+        db_session: AsyncSession for database access (required if profile_id provided)
+        current_age: Player's current age (for decision summarization)
+        current_fi_score: Player's current FI score (for decision summarization)
+        top_k: Number of financial concepts to retrieve from RAG
+        min_score: Minimum relevance score threshold for concepts
+        include_decisions: Whether to include player's decision history
+        
+    Returns:
+        Formatted context string with concepts and decision history, or None if nothing found
+    """
+    print("\n" + "="*80)
+    print("🔍 CONTEXT RETRIEVAL (Financial Concepts + Decision History)")
+    print("="*80)
+    print(f"Query: {query}")
+    print(f"Parameters: top_k={top_k}, min_score={min_score}, profile_id={profile_id}")
+    print("-"*80)
+    
+    context_parts = []
+    
+    # ==========================================
+    # Part 1: Financial Concepts from RAG (PDFs)
+    # ==========================================
+    try:
+        from rag_service import get_rag_service
+        rag = get_rag_service()
+        print("✅ RAG service retrieved successfully")
+        
+        concepts = rag.retrieve_financial_concepts(
+            query=query,
+            top_k=top_k
+        )
+        
+        print(f"📊 Retrieved {len(concepts) if concepts else 0} financial concepts")
+        
+        if concepts:
+            for i, c in enumerate(concepts, 1):
+                print(f"  {i}. {c['title']} - Score: {c['score']:.3f} - Source: {c.get('source', 'unknown')}")
+        
+        # Check if concepts meet threshold
+        has_relevant_concepts = concepts and len(concepts) > 0 and concepts[0]['score'] >= min_score
+        
+        if not has_relevant_concepts:
+            best_score = concepts[0]['score'] if concepts and len(concepts) > 0 else None
+            score_text = f"{best_score:.3f}" if best_score is not None else "N/A"
+            print(f"⚠️  No concepts above threshold (best score: {score_text})")
+        else:
+            print(f"✅ Using {len([c for c in concepts if c['score'] >= min_score])} concepts above threshold")
+        
+        # Format retrieved concepts for prompt injection
+        if has_relevant_concepts:
+            concept_lines = []
+            for i, concept in enumerate(concepts, 1):
+                if concept['score'] >= min_score:
+                    source_info = f"[Source: {concept.get('source', 'knowledge_base')}]"
+                    concept_lines.append(
+                        f"{i}. {concept['title']} (relevance: {concept['score']:.2f}) {source_info}\n"
+                        f"   {concept['content'][:300]}{'...' if len(concept['content']) > 300 else ''}"
+                    )
+            
+            if concept_lines:
+                context_parts.append("=== FINANCIAL KNOWLEDGE ===\n" + "\n\n".join(concept_lines))
+        
+    except Exception as e:
+        print(f"⚠️ RAG retrieval failed: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # ==========================================
+    # Part 2: Player Decision History from SQLite
+    # ==========================================
+    if include_decisions and profile_id and db_session:
+        try:
+            print("\n" + "-"*80)
+            print("🕐 Retrieving player decision history from SQLite...")
+            
+            from utils import get_decision_context_for_llm
+            
+            decision_context = await get_decision_context_for_llm(
+                profile_id=profile_id,
+                db_session=db_session,
+                current_age=current_age or 25,
+                current_fi_score=current_fi_score or 0.0,
+                max_recent=3
+            )
+            
+            if decision_context and decision_context != "This is the start of the player's journey.":
+                context_parts.append(decision_context)
+                print(f"✅ Added player decision history ({len(decision_context)} chars)")
+            else:
+                print(f"ℹ️  No decision history yet (new player)")
+                
+        except Exception as e:
+            print(f"⚠️ Decision history retrieval failed: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Return combined context or None if nothing was found
+    if not context_parts:
+        print(f"ℹ️  No relevant context found")
+        print("="*80 + "\n")
+        return None
+    
+    result = "\n\n".join(context_parts)
+    print(f"📝 Total context: {len(result)} characters")
+    print("="*80 + "\n")
+    return result
+
+
 def load_prompt_template(filename: str) -> Dict:
     """Load a prompt template from JSON file"""
     filepath = PROMPTS_DIR / filename
@@ -34,6 +162,7 @@ CONSEQUENCE_PROMPTS = load_prompt_template("consequence_prompt.json")
 LEARNING_PROMPTS = load_prompt_template("learning_moment_prompt.json")
 FALLBACK_NARRATIVES = load_prompt_template("fallback_narratives.json")
 OPTIONS_PROMPTS = load_prompt_template("options_prompt.json")
+DYNAMIC_OPTIONS_PROMPTS = load_prompt_template("dynamic_options_prompt.json")
 
 
 def get_ai_client():
@@ -44,10 +173,11 @@ def get_ai_client():
     return genai.Client(api_key=api_key)
 
 
-def generate_event_narrative(
+async def generate_event_narrative(
     event_type: str,
     state: GameState,
     profile: PlayerProfile,
+    db_session = None,
     curveball: Optional[Dict] = None,
     client: Optional[genai.Client] = None
 ) -> str:
@@ -58,6 +188,7 @@ def generate_event_narrative(
         event_type: Type of event
         state: Current game state
         profile: Player profile
+        db_session: AsyncSession for database access (required for decision history)
         curveball: Optional curveball details
         client: Gemini client (optional)
 
@@ -72,7 +203,29 @@ def generate_event_narrative(
         return get_fallback_narrative(event_type, state, curveball)
 
     try:
-        prompt = build_narrative_prompt(event_type, state, profile, curveball)
+        # RAG-ENHANCED: Retrieve relevant financial concepts + player decision history
+        print("\n" + "#"*80)
+        print(f"📖 EVENT NARRATIVE GENERATION - Context Retrieval")
+        print("#"*80)
+        rag_query = f"{event_type} event. Age {state.current_age}, income €{state.monthly_income}, FI score {state.fi_score:.1f}%, financial knowledge {state.financial_knowledge}/100"
+        rag_context = await retrieve_rag_context(
+            query=rag_query,
+            profile_id=profile.id,
+            db_session=db_session,
+            current_age=state.current_age,
+            current_fi_score=state.fi_score,
+            top_k=2,
+            min_score=0.4,
+            include_decisions=True
+        )
+        
+        if rag_context:
+            print(f"✅ Context WILL BE INJECTED into {event_type} narrative prompt")
+        else:
+            print(f"ℹ️  No context - proceeding with standard prompt")
+        print("#"*80 + "\n")
+        
+        prompt = build_narrative_prompt(event_type, state, profile, curveball, rag_context)
 
         print("\n" + "="*80)
         print(f"🤖 GEMINI API CALL - Event Narrative ({event_type})")
@@ -97,11 +250,12 @@ def generate_event_narrative(
         return get_fallback_narrative(event_type, state, curveball)
 
 
-def generate_consequence_narrative(
+async def generate_consequence_narrative(
     chosen_option: str,
     option_effect: Dict,
     state: GameState,
     profile: PlayerProfile,
+    db_session = None,
     client: Optional[genai.Client] = None
 ) -> str:
     """
@@ -112,6 +266,7 @@ def generate_consequence_narrative(
         option_effect: Effect details
         state: Updated game state
         profile: Player profile
+        db_session: AsyncSession for database access (required for decision history)
         client: Gemini client (optional)
 
     Returns:
@@ -124,8 +279,30 @@ def generate_consequence_narrative(
         return option_effect.get("explanation", "You made your choice.")
 
     try:
+        # RAG-ENHANCED: Retrieve context about the consequences of this decision type
+        print("\n" + "#"*80)
+        print(f"💥 CONSEQUENCE NARRATIVE GENERATION - Context Retrieval")
+        print("#"*80)
+        rag_query = f"{chosen_option}. Consequence of financial decision. Age {state.current_age}, FI score {state.fi_score:.1f}%"
+        rag_context = await retrieve_rag_context(
+            query=rag_query,
+            profile_id=profile.id,
+            db_session=db_session,
+            current_age=state.current_age,
+            current_fi_score=state.fi_score,
+            top_k=2,
+            min_score=0.4,
+            include_decisions=True
+        )
+        
+        if rag_context:
+            print(f"✅ Context WILL BE INJECTED into consequence narrative prompt")
+        else:
+            print(f"ℹ️  No context - proceeding with standard prompt")
+        print("#"*80 + "\n")
+        
         prompt = build_consequence_prompt(
-            chosen_option, option_effect, state, profile)
+            chosen_option, option_effect, state, profile, rag_context)
 
         print("\n" + "="*80)
         print("🤖 GEMINI API CALL - Consequence Narrative")
@@ -170,31 +347,45 @@ def generate_learning_moment(
     """
     # RAG-ENHANCED: Retrieve relevant concepts instead of random chance
     try:
+        print("\n" + "#"*80)
+        print(f"💡 LEARNING MOMENT GENERATION - RAG Enhancement")
+        print("#"*80)
         from rag_service import get_rag_service
         rag = get_rag_service()
-        
+
         # Build query from context
         query = f"{chosen_option}. Age {state.current_age}, FI score {state.fi_score:.1f}%, financial knowledge {state.financial_knowledge}/100"
-        print(f"🔎 RAG Query for learning moment: {query}")
+        print(f"🔎 RAG Query: {query}")
         # Retrieve relevant financial concepts
         difficulty = "beginner" if state.financial_knowledge < 50 else "intermediate"
+        print(f"📊 Difficulty filter: {difficulty}")
         concepts = rag.retrieve_financial_concepts(
             query=query,
             difficulty_filter=difficulty,
             top_k=2
         )
-        print(f"🔍 Retrieved {len(concepts)} concepts for learning moment")
-        for concept in concepts:
-            print(f"   - {concept['title']} (score: {concept['score']:.2f})")
+        print(f"📚 Retrieved {len(concepts) if concepts else 0} concepts")
+        if concepts:
+            for i, concept in enumerate(concepts, 1):
+                print(f"  {i}. {concept['title']} - Score: {concept['score']:.3f}")
 
         # Only generate if we found relevant concepts (score > 0.7)
-        if not concepts or concepts[0]['score'] < 0.7:
-            print("⚠️ No relevant concepts found with sufficient score for learning moment")
+        if not concepts or len(concepts) == 0:
+            print(f"⚠️  No concepts retrieved")
+            print("#"*80 + "\n")
             return None  # No relevant tip available
+        
+        if concepts[0]['score'] < 0.7:
+            print(f"⚠️  No concepts above threshold 0.7 (best: {concepts[0]['score']:.3f})")
+            print("#"*80 + "\n")
+            return None  # No relevant tip available
+        
+        print(f"✅ Using concept with score {concepts[0]['score']:.3f}")
+        print("#"*80 + "\n")
         
         if client is None:  
             client = get_ai_client()
-        
+
         if client is None:
             return None
         
@@ -223,7 +414,8 @@ Be encouraging and practical. Make it actionable."""
         print("\n" + "="*80)
         print("🤖 GEMINI API CALL - Learning Moment (RAG-Enhanced)")
         print("="*80)
-        print(f"📚 Retrieved concept: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
+        print(
+            f"📚 Retrieved concept: {concepts[0]['title']} (score: {concepts[0]['score']:.2f})")
         print("PROMPT:")
         print(prompt)
         print("\n" + "-"*80)
@@ -237,22 +429,22 @@ Be encouraging and practical. Make it actionable."""
         print("RESPONSE:")
         print(tip)
         print("="*80 + "\n")
-        
+
         return tip
-        
+
     except Exception as e:
         print(f"⚠️ RAG learning moment failed: {e}")
         # Fallback to original 30% random logic
         import random
         if random.random() > 0.7:
             return None
-        
+
         if client is None:
             client = get_ai_client()
-        
+
         if client is None:
             return None
-        
+
         try:
             # Original prompt without RAG
             prompt = f"""{LEARNING_PROMPTS['system_context']} {LEARNING_PROMPTS['template'].format(
@@ -271,9 +463,9 @@ Be encouraging and practical. Make it actionable."""
                 model="gemini-2.0-flash-exp",
                 contents=prompt
             )
-            
+
             return response.text.strip()
-            
+
         except Exception as e2:
             print(f"Learning moment generation failed: {e2}")
             return None
@@ -307,6 +499,27 @@ def generate_option_texts(
         return [opt.get("fallback_text", opt["explanation"]) for opt in option_descriptions]
 
     try:
+        # RAG-ENHANCED: Retrieve context about the decision options
+        print("\n" + "#"*80)
+        print(f"🎯 OPTION TEXTS GENERATION - RAG Enhancement")
+        print("#"*80)
+        rag_query = f"{event_type} financial decision options. Age {state.current_age}, FI score {state.fi_score:.1f}%, income €{state.monthly_income}"
+        rag_context = retrieve_rag_context(
+            rag_query, 
+            top_k=2, 
+            min_score=0.4,
+            session_id=getattr(profile, 'session_id', None),
+            age=state.current_age,
+            education=profile.education_path.value,
+            include_decisions=True
+        )
+        
+        if rag_context:
+            print(f"✅ RAG context WILL BE INJECTED into option texts prompt")
+        else:
+            print(f"ℹ️  No RAG context - proceeding with standard prompt")
+        print("#"*80 + "\n")
+        
         # Build prompt for option generation
         options_context = "\n".join([
             f"{i+1}. {opt['explanation']}"
@@ -327,10 +540,20 @@ def generate_option_texts(
             options_context=options_context
         )
 
+        # Add RAG context if available
+        rag_section = ""
+        if rag_context:
+            rag_section = f"""
+RELEVANT FINANCIAL KNOWLEDGE & PLAYER HISTORY:
+{rag_context}
+
+Frame the options using this knowledge to make them educational. If past decisions are included, consider how they might inform the current choice (e.g., building on previous success or avoiding past mistakes).
+"""
+        
         prompt = f"""{OPTIONS_PROMPTS['system_context']}
 
 {template_filled}
-
+{rag_section}
 {OPTIONS_PROMPTS['instruction']}
 
 {OPTIONS_PROMPTS['format_instruction']}"""
@@ -382,9 +605,10 @@ def build_narrative_prompt(
     event_type: str,
     state: GameState,
     profile: PlayerProfile,
-    curveball: Optional[Dict] = None
+    curveball: Optional[Dict] = None,
+    rag_context: Optional[str] = None
 ) -> str:
-    """Build prompt for event narrative generation"""
+    """Build prompt for event narrative generation (RAG-enhanced)"""
 
     # Format assets for display
     assets_text = ""
@@ -392,11 +616,15 @@ def build_narrative_prompt(
         assets_list = []
         for key, value in state.assets.items():
             if isinstance(value, dict):
-                asset_details = ", ".join([f"{k}: {v}" for k, v in value.items()])
-                assets_list.append(f"  • {key.replace('_', ' ').title()}: {asset_details}")
+                asset_details = ", ".join(
+                    [f"{k}: {v}" for k, v in value.items()])
+                assets_list.append(
+                    f"  • {key.replace('_', ' ').title()}: {asset_details}")
             else:
-                assets_list.append(f"  • {key.replace('_', ' ').title()}: {value}")
-        assets_text = "Assets Owned:\n" + "\n".join(assets_list) if assets_list else "No major assets yet"
+                assets_list.append(
+                    f"  • {key.replace('_', ' ').title()}: {value}")
+        assets_text = "Assets Owned:\n" + \
+            "\n".join(assets_list) if assets_list else "No major assets yet"
     else:
         assets_text = "Assets Owned: None yet"
 
@@ -443,9 +671,19 @@ Current Situation (Step {state.current_step}):
             event_type=event_type,
             description=description
         )
+    
+    # Add RAG-retrieved knowledge if available
+    rag_section = ""
+    if rag_context:
+        rag_section = f"""
+RELEVANT FINANCIAL KNOWLEDGE & PLAYER HISTORY:
+{rag_context}
+
+Use this knowledge to make the narrative more educational and accurate. If past decisions are included, reference them to create continuity and personalization. Make the player feel their journey is unique.
+"""
 
     return f"""{context}
-
+{rag_section}
 Tone: {tone}
 
 Task: {event_prompt}
@@ -457,9 +695,20 @@ def build_consequence_prompt(
     chosen_option: str,
     option_effect: Dict,
     state: GameState,
-    profile: PlayerProfile
+    profile: PlayerProfile,
+    rag_context: Optional[str] = None
 ) -> str:
-    """Build prompt for consequence narrative generation"""
+    """Build prompt for consequence narrative generation (RAG-enhanced)"""
+    
+    # Add RAG-retrieved knowledge if available
+    rag_section = ""
+    if rag_context:
+        rag_section = f"""
+RELEVANT FINANCIAL KNOWLEDGE & PLAYER HISTORY:
+{rag_context}
+
+Ground your consequence narrative in this knowledge. If past decisions are shown, acknowledge patterns in the player's behavior (e.g., "This is similar to when you..."). Make the outcome educational and personalized.
+"""
 
     prompt_content = CONSEQUENCE_PROMPTS['template'].format(
         chosen_option=chosen_option,
@@ -472,7 +721,7 @@ def build_consequence_prompt(
     )
 
     return f"""{CONSEQUENCE_PROMPTS['system_context']}
-
+{rag_section}
 {prompt_content}
 
 {CONSEQUENCE_PROMPTS['instruction']}"""
@@ -500,3 +749,181 @@ def get_fallback_narrative(
         money=state.money,
         debts=state.debts
     )
+
+
+def generate_dynamic_options(
+    event_type: str,
+    narrative: str,
+    state: GameState,
+    profile: PlayerProfile,
+    client: Optional[genai.Client] = None
+) -> List[Dict]:
+    """
+    Generate decision options dynamically using AI with complete effects.
+
+    Args:
+        event_type: Type of event
+        narrative: The narrative context for this decision
+        state: Current game state
+        profile: Player profile
+        client: Gemini client (optional)
+
+    Returns:
+        List of option dictionaries with text and effects
+    """
+    if client is None:
+        client = get_ai_client()
+
+    # If no AI available, return a generic fallback
+    if client is None:
+        return generate_fallback_options(event_type, state)
+
+    try:
+        # Build prompt for dynamic option generation
+        assets_str = ", ".join(
+            [f"{k}: {v}" for k, v in state.assets.items()]) if state.assets else "None"
+
+        event_description = DYNAMIC_OPTIONS_PROMPTS.get('variation_guidance', {}).get(
+            event_type,
+            "A decision point in the player's financial journey."
+        )
+
+        template_filled = DYNAMIC_OPTIONS_PROMPTS['template'].format(
+            player_name=profile.player_name,
+            current_age=state.current_age,
+            current_step=state.current_step,
+            city=profile.city,
+            education=profile.education_path.value,
+            risk_attitude=profile.risk_attitude.value,
+            money=state.money,
+            monthly_income=state.monthly_income,
+            monthly_expenses=state.monthly_expenses,
+            investments=state.investments,
+            passive_income=state.passive_income,
+            debts=state.debts,
+            fi_score=state.fi_score,
+            energy=state.energy,
+            motivation=state.motivation,
+            social_life=state.social_life,
+            financial_knowledge=state.financial_knowledge,
+            assets=assets_str,
+            event_type=event_type,
+            event_description=event_description,
+            narrative=narrative
+        )
+
+        prompt = f"""{DYNAMIC_OPTIONS_PROMPTS['system_context']}
+
+{DYNAMIC_OPTIONS_PROMPTS['instruction']}
+
+{template_filled}
+
+{DYNAMIC_OPTIONS_PROMPTS['format_instruction']}"""
+
+        print("\n" + "="*80)
+        print(f"🤖 GEMINI API CALL - Dynamic Options Generation ({event_type})")
+        print("="*80)
+        print("PROMPT:")
+        print(prompt)
+        print("\n" + "-"*80)
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp",
+            contents=prompt
+        )
+
+        print("RESPONSE:")
+        print(response.text.strip())
+        print("="*80 + "\n")
+
+        # Parse JSON response
+        response_text = response.text.strip()
+
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text.split(
+                "```json")[1].split("```")[0].strip()
+        elif response_text.startswith("```"):
+            response_text = response_text.split(
+                "```")[1].split("```")[0].strip()
+
+        options = json.loads(response_text)
+
+        # Validate that we got a list of options
+        if not isinstance(options, list) or len(options) < 2:
+            print(f"Warning: Invalid options format, using fallback")
+            return generate_fallback_options(event_type, state)
+
+        # Validate each option has required fields
+        required_fields = ["text", "money_change", "explanation"]
+        for opt in options:
+            if not all(field in opt for field in required_fields):
+                print(f"Warning: Option missing required fields, using fallback")
+                return generate_fallback_options(event_type, state)
+
+        print(f"✅ Successfully generated {len(options)} dynamic options")
+        return options
+
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error in dynamic options: {e}")
+        print(f"Response was: {response.text[:500]}...")
+        return generate_fallback_options(event_type, state)
+    except Exception as e:
+        print(f"Dynamic option generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return generate_fallback_options(event_type, state)
+
+
+def generate_fallback_options(event_type: str, state: GameState) -> List[Dict]:
+    """
+    Generate simple fallback options when AI is not available.
+    These are generic but functional.
+    """
+    paycheck = state.monthly_income
+
+    # Generic options that work for most scenarios
+    return [
+        {
+            "text": f"Save {int(paycheck * 0.3)} euros and invest in learning",
+            "money_change": paycheck * 0.3,
+            "investment_change": 0,
+            "debt_change": 0,
+            "income_change": 0,
+            "expense_change": 0,
+            "passive_income_change": 0,
+            "energy_change": 0,
+            "motivation_change": 5,
+            "social_change": 0,
+            "knowledge_change": 10,
+            "explanation": f"Save €{paycheck * 0.3:.0f} and focus on building knowledge for future opportunities"
+        },
+        {
+            "text": "Take a balanced approach to finances and lifestyle",
+            "money_change": paycheck * 0.2,
+            "investment_change": 0,
+            "debt_change": 0,
+            "income_change": 0,
+            "expense_change": 0,
+            "passive_income_change": 0,
+            "energy_change": 5,
+            "motivation_change": 5,
+            "social_change": 5,
+            "knowledge_change": 5,
+            "explanation": f"Save €{paycheck * 0.2:.0f}, maintain good life balance across all areas"
+        },
+        {
+            "text": "Focus on immediate needs and social connections",
+            "money_change": paycheck * 0.1,
+            "investment_change": 0,
+            "debt_change": 0,
+            "income_change": 0,
+            "expense_change": 0,
+            "passive_income_change": 0,
+            "energy_change": 5,
+            "motivation_change": 5,
+            "social_change": 15,
+            "knowledge_change": 0,
+            "explanation": f"Save only €{paycheck * 0.1:.0f}, prioritize relationships and well-being now"
+        }
+    ]

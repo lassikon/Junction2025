@@ -17,6 +17,15 @@ load_dotenv()
 class RAGService:
     """
     Retrieval-Augmented Generation service using ChromaDB + Google Gemini embeddings
+    
+    MVP SCOPE:
+    - Financial concepts from PDFs (semantic search for educational content)
+    
+    FUTURE SCOPE (when we have 100+ users):
+    - Player decisions collection (cross-player similarity search)
+    - Use retrieve_similar_decisions() for "What did others do?" insights
+    
+    Current approach: SQLite DecisionHistory for personal player history (fast, simple)
     """
     
     def __init__(self, chroma_host: str = "chromadb", chroma_port: int = 8000):
@@ -38,13 +47,14 @@ class RAGService:
         
         # Create/get collections
         self.financial_concepts = self._get_or_create_collection("financial_concepts")
+        # Player decisions collection kept for future use (cross-player insights)
         self.player_decisions = self._get_or_create_collection("player_decisions")
         
         # In-memory embedding cache (LRU cache with max 100 entries)
         self._embedding_cache = {}
         self._cache_max_size = 100
         
-        print("✅ RAG Service initialized")
+        print("✅ RAG Service initialized (MVP: PDF concepts only)")
     
     def _get_or_create_collection(self, name: str):
         """Get existing collection or create new one"""
@@ -232,8 +242,23 @@ class RAGService:
         return concepts
     
     # ==========================================
-    # Player Decision History Index
+    # Player Decision History Index (FUTURE USE - NOT USED IN MVP)
     # ==========================================
+    # NOTE: These methods are preserved for future cross-player insights feature
+    # Current MVP uses SQLite DecisionHistory (see utils.py) for personal history
+    # TODO: Enable when we have 100+ users for semantic similarity across players
+    #
+    # WHY NOT NOW:
+    # - RAG with embeddings is overkill for individual player history (small dataset)
+    # - SQLite queries are instant vs embedding generation latency
+    # - Sequential decision history better served by chronological SQL queries
+    # - RAG shines for cross-player semantic search: "What did others with similar
+    #   situations do?" - valuable when we have large dataset (100+ players)
+    #
+    # WHEN TO ENABLE:
+    # - Uncomment index_player_decision() calls in main.py
+    # - Implement /api/insights/similar-players endpoint
+    # - Use for educational "community wisdom" features
     
     def index_player_decision(
         self,
@@ -247,7 +272,12 @@ class RAGService:
         education: str
     ):
         """
-        Index a player's decision for future retrieval
+        Index a player's decision for future retrieval (CURRENTLY UNUSED IN MVP)
+        
+        FUTURE USE: When enabled, this will allow cross-player similarity search
+        - Find "what did others with similar profile do in this situation?"
+        - Semantic search across all player decisions
+        - Insights like "Players like you typically chose X"
         
         Args:
             session_id: Player session identifier
@@ -292,7 +322,12 @@ class RAGService:
         top_k: int = 5
     ) -> List[Dict]:
         """
-        Retrieve similar past player decisions
+        Retrieve similar past player decisions (CURRENTLY UNUSED IN MVP)
+        
+        FUTURE USE: Cross-player semantic similarity search
+        Example: "I'm 25, €5k debt, considering investing" 
+        → Find similar situations from all players
+        → Show patterns: "70% who invested at your age saw FI+15%"
         
         Args:
             query: Current decision context
