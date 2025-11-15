@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
+import { useGameStore } from "../store/gameStore";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+
+// Helper to get auth headers
+const getAuthHeaders = () => {
+  const authToken = useGameStore.getState().authToken;
+  return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+};
 
 /**
  * TanStack Query API hooks for LifeSim game
@@ -50,7 +57,10 @@ export function useOnboarding() {
     mutationFn: async (onboardingData) => {
       const response = await axios.post(
         `${API_URL}/api/onboarding`,
-        onboardingData
+        onboardingData,
+        {
+          headers: getAuthHeaders(),
+        }
       );
       return response.data;
     },

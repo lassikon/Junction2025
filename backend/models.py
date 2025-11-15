@@ -43,6 +43,62 @@ class ChatRole(str, Enum):
     ASSISTANT = "assistant"
 
 
+# Account Model
+class Account(SQLModel, table=True):
+    """
+    User accounts for persistent identity across game sessions.
+    Users can register and link multiple games to their account.
+    """
+    __tablename__ = "accounts"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True, unique=True, max_length=50)
+    password_hash: str  # Bcrypt hashed password
+    display_name: str = Field(max_length=100)
+
+    # Account metadata
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login: Optional[datetime] = None
+
+    # Onboarding completion status
+    has_completed_onboarding: bool = Field(default=False)
+
+    # Persistent onboarding data (saved so they don't re-do onboarding each game)
+    default_age: Optional[int] = None
+    default_city: Optional[str] = None
+    default_education_path: Optional[str] = None  # Store as string to avoid enum issues
+    default_risk_attitude: Optional[str] = None  # Store as string to avoid enum issues
+    default_monthly_income: Optional[float] = None
+    default_monthly_expenses: Optional[float] = None
+    default_starting_savings: Optional[float] = None
+    default_starting_debt: Optional[float] = None
+    default_aspirations: dict = Field(default={}, sa_column=Column(JSON))
+
+    # Relationships
+    game_sessions: List["PlayerProfile"] = Relationship(back_populates="account")
+    session_tokens: List["SessionToken"] = Relationship(back_populates="account")
+
+
+# Session Token Model
+class SessionToken(SQLModel, table=True):
+    """
+    Session tokens for authentication.
+    Simple session-based auth (easier for hackathon than JWT).
+    """
+    __tablename__ = "session_tokens"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str = Field(index=True, unique=True)
+    account_id: int = Field(foreign_key="accounts.id", index=True)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime  # Token expiration
+    is_active: bool = Field(default=True)
+
+    # Relationships
+    account: Account = Relationship(back_populates="session_tokens")
+
+
 # Player Profile Model
 class PlayerProfile(SQLModel, table=True):
     """
@@ -57,6 +113,10 @@ class PlayerProfile(SQLModel, table=True):
 
     # Player identification
     player_name: str = Field(max_length=100)
+
+    # Account linkage (nullable for test mode/guest players)
+    account_id: Optional[int] = Field(default=None, foreign_key="accounts.id", index=True)
+    is_test_mode: bool = Field(default=False)  # True if playing as guest (not saved to leaderboard)
 
     # Onboarding data
     age: int = Field(ge=15, le=35)
@@ -76,6 +136,7 @@ class PlayerProfile(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
+    account: Optional["Account"] = Relationship(back_populates="game_sessions")
     game_state: Optional["GameState"] = Relationship(
         back_populates="player_profile")
     decisions: List["DecisionHistory"] = Relationship(
@@ -236,6 +297,10 @@ class LeaderboardEntry(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     session_id: str = Field(index=True)
+
+    # Account linkage (nullable for test mode)
+    account_id: Optional[int] = Field(default=None, foreign_key="accounts.id", index=True)
+    is_test_mode: bool = Field(default=False)  # Don't show test mode plays on leaderboard
 
     # Player info
     player_name: str
@@ -536,3 +601,57 @@ class ChatHistoryResponse(SQLModel):
     current_page: int
     page_size: int
     has_more: bool
+
+
+# Authentication API Models
+class RegisterRequest(SQLModel):
+    """Request model for account registration"""
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=6, max_length=100)
+    display_name: str = Field(min_length=1, max_length=100)
+
+
+class LoginRequest(SQLModel):
+    """Request model for login"""
+    username: str
+    password: str
+
+
+class AuthResponse(SQLModel):
+    """Response model for authentication (login/register)"""
+    token: str
+    account_id: int
+    username: str
+    display_name: str
+    has_completed_onboarding: bool
+
+
+class AccountProfileResponse(SQLModel):
+    """Response model for account profile"""
+    account_id: int
+    username: str
+    display_name: str
+    created_at: datetime
+    has_completed_onboarding: bool
+    default_age: Optional[int] = None
+    default_city: Optional[str] = None
+    default_education_path: Optional[str] = None
+    default_risk_attitude: Optional[str] = None
+    default_monthly_income: Optional[float] = None
+    default_monthly_expenses: Optional[float] = None
+    default_starting_savings: Optional[float] = None
+    default_starting_debt: Optional[float] = None
+    default_aspirations: dict = {}
+
+
+class UpdateOnboardingDefaultsRequest(SQLModel):
+    """Request model for updating account onboarding defaults"""
+    age: int = Field(ge=15, le=35)
+    city: str
+    education_path: str
+    risk_attitude: str
+    monthly_income: float = Field(gt=0)
+    monthly_expenses: float = Field(ge=0)
+    starting_savings: float = Field(default=0.0, ge=0)
+    starting_debt: float = Field(default=0.0, ge=0)
+    aspirations: dict = {}

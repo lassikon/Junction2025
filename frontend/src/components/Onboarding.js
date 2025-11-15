@@ -59,20 +59,38 @@ const ASPIRATION_OPTIONS = [
   { key: "help_family", label: "Help Family", icon: "👨‍👩‍👧‍👦" },
 ];
 
-const Onboarding = ({ onComplete, isLoading = false }) => {
+const Onboarding = ({ onComplete, isLoading = false, defaultData = null }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     player_name: "",
-    age: 25,
-    city: "Helsinki",
-    education_path: "",
-    risk_attitude: "",
-    monthly_income: 2000,
-    monthly_expenses: 1000,
-    starting_savings: 0,
-    starting_debt: 0,
-    aspirations: {},
+    age: defaultData?.age || 25,
+    city: defaultData?.city || "Helsinki",
+    education_path: defaultData?.education_path || "",
+    risk_attitude: defaultData?.risk_attitude || "",
+    monthly_income: defaultData?.monthly_income || 2000,
+    monthly_expenses: defaultData?.monthly_expenses || 1000,
+    starting_savings: defaultData?.starting_savings || 0,
+    starting_debt: defaultData?.starting_debt || 0,
+    aspirations: defaultData?.aspirations || {},
   });
+  
+  // Update form data when defaultData is loaded
+  React.useEffect(() => {
+    if (defaultData) {
+      setFormData(prev => ({
+        ...prev,
+        age: defaultData.age || prev.age,
+        city: defaultData.city || prev.city,
+        education_path: defaultData.education_path || prev.education_path,
+        risk_attitude: defaultData.risk_attitude || prev.risk_attitude,
+        monthly_income: defaultData.monthly_income || prev.monthly_income,
+        monthly_expenses: defaultData.monthly_expenses || prev.monthly_expenses,
+        starting_savings: defaultData.starting_savings || prev.starting_savings,
+        starting_debt: defaultData.starting_debt || prev.starting_debt,
+        aspirations: defaultData.aspirations || prev.aspirations,
+      }));
+    }
+  }, [defaultData]);
 
   const totalSteps = 7;
 
