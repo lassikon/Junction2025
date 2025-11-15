@@ -19,6 +19,9 @@ This guide covers how to implement the frontend UI for the expense categories fe
 ✅ AI can generate options that modify specific expense categories  
 ✅ `apply_decision_effects()` recalculates total `monthly_expenses` from category sum  
 ✅ Transaction summaries include expense category changes  
+✅ **Expense constraints & minimums** - Players cannot reduce expenses below sustainable levels  
+✅ **Health impact system** - Low food/housing spending affects energy, motivation, and social metrics  
+✅ **Validation system** - Automatically caps expense reductions at safe minimums  
 
 ## Implementation Steps
 
@@ -451,7 +454,74 @@ interface TransactionSummary {
 
 ---
 
+## Expense Constraints & Health Impacts
+
+### Minimum Expenses (Cannot Go Below)
+
+The game enforces realistic minimum expenses that players cannot violate:
+
+- **Housing**: €300 (€400 in Helsinki area) - Shared room minimum
+- **Food**: €150 - Bare minimum nutrition ⚠️ DANGEROUS
+- **Transport**: €30 - Basic public transport
+- **Utilities**: €50 - Cannot turn off electricity/water
+- **Insurance**: €20 - Minimum health coverage
+- **Other**: €20 - Basic hygiene/personal care
+- **Subscriptions**: €0 - Fully optional
+
+If a player (or AI) tries to reduce expenses below these minimums, the system will automatically cap the reduction and show a warning message.
+
+### Health Impact Thresholds
+
+When expenses fall below certain thresholds, players suffer **ongoing monthly health consequences**:
+
+#### Food (Most Critical) 🍽️
+- **Below €150**: -3 energy, -1 motivation per month (severe malnutrition)
+- **€150-200**: -1 energy per month (poor diet, not enough variety)
+- **€200-250**: Adequate (neutral)
+- **Above €250**: Good nutrition (may gain +1 energy)
+
+#### Housing 🏠
+- **€300-350**: -2 energy, -1 social per month (poor living conditions)
+- **€350-500**: -1 energy per month (basic but uncomfortable)
+- **Above €500**: Comfortable (neutral)
+
+#### Transport 🚗
+- **Below €50**: -1 social per month (limited mobility, can't attend events)
+- **€50-80**: Adequate public transport (neutral)
+- **Above €80**: Good mobility (neutral)
+
+### Warning Messages
+
+The system displays warnings when expenses are dangerously low:
+
+- **Food at €150**: "⚠️ Your food budget is at the absolute minimum. You're not eating enough - this is severely impacting your energy and health."
+- **Housing at €300**: "⚠️ Your housing is at the bare minimum (shared room/poor conditions). This is affecting your wellbeing."
+- **Transport below €50**: "⚠️ Your transport budget is minimal. This limits your ability to socialize and attend events."
+
+### Frontend Implementation Considerations
+
+When displaying expense controls or options:
+
+1. **Visual Warnings**: Show red/yellow indicators when approaching minimums
+2. **Disable Reduction**: Prevent slider/input from going below minimum
+3. **Show Consequences**: Display health impact preview before confirming changes
+4. **Educational Tooltips**: Explain why minimums exist ("You need to eat to survive!")
+
+Example warning display:
+```jsx
+{gameState.expense_food <= 200 && (
+  <div className="expense-warning">
+    ⚠️ Low food budget is affecting your energy!
+  </div>
+)}
+```
+
+---
+
 ## Troubleshooting
+
+### Issue: Player can't reduce expenses below a certain amount
+**This is intentional!** The system enforces minimum sustainable expense levels. Check the minimums above.
 
 ### Issue: Expense categories don't sum to monthly_expenses
 **Solution:** Check `apply_decision_effects()` in `backend/game_engine.py` - it should recalculate the total from categories.

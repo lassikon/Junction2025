@@ -17,6 +17,11 @@ from utils import (
     calculate_balance_score,
     clamp
 )
+from expense_constraints import (
+    validate_expense_change,
+    calculate_health_impact,
+    get_expense_warning
+)
 
 
 # Event types organized by month phase
@@ -203,14 +208,83 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> Dict:
     state.monthly_expenses += effect.expense_change
     state.passive_income += effect.passive_income_change
 
-    # Update expense category breakdowns
-    state.expense_housing += effect.expense_housing_change
-    state.expense_food += effect.expense_food_change
-    state.expense_transport += effect.expense_transport_change
-    state.expense_utilities += effect.expense_utilities_change
-    state.expense_subscriptions += effect.expense_subscriptions_change
-    state.expense_insurance += effect.expense_insurance_change
-    state.expense_other += effect.expense_other_change
+    # Track warnings for expense constraint violations
+    expense_warnings = []
+
+    # Validate and apply expense category changes with health impacts
+    expense_categories = {
+        "housing": (state.expense_housing, effect.expense_housing_change),
+        "food": (state.expense_food, effect.expense_food_change),
+        "transport": (state.expense_transport, effect.expense_transport_change),
+        "utilities": (state.expense_utilities, effect.expense_utilities_change),
+        "subscriptions": (state.expense_subscriptions, effect.expense_subscriptions_change),
+        "insurance": (state.expense_insurance, effect.expense_insurance_change),
+        "other": (state.expense_other, effect.expense_other_change)
+    }
+
+    # Get player's profile to access city info (for validation)
+    from database import async_session_maker
+    import asyncio
+
+    for category, (current_value, change) in expense_categories.items():
+        if change != 0:
+            # Validate the change against minimums
+            # Note: We'll use a default city here since we don't have profile context
+            # This could be improved by passing profile to this function
+            allowed_change, warning = validate_expense_change(
+                category, current_value, change, city="Helsinki"
+            )
+
+            # Apply the allowed change (may be less than requested)
+            actual_change = allowed_change
+
+            # Calculate health impact from the expense change
+            health_impact = calculate_health_impact(
+                category, current_value, actual_change)
+
+            # Apply the expense change
+            if category == "housing":
+                state.expense_housing += actual_change
+                effect.expense_housing_change = actual_change
+            elif category == "food":
+                state.expense_food += actual_change
+                effect.expense_food_change = actual_change
+            elif category == "transport":
+                state.expense_transport += actual_change
+                effect.expense_transport_change = actual_change
+            elif category == "utilities":
+                state.expense_utilities += actual_change
+                effect.expense_utilities_change = actual_change
+            elif category == "subscriptions":
+                state.expense_subscriptions += actual_change
+                effect.expense_subscriptions_change = actual_change
+            elif category == "insurance":
+                state.expense_insurance += actual_change
+                effect.expense_insurance_change = actual_change
+            elif category == "other":
+                state.expense_other += actual_change
+                effect.expense_other_change = actual_change
+
+            # Apply health impacts to life metrics
+            for metric, impact_value in health_impact.items():
+                if metric == "energy":
+                    effect.energy_change += impact_value
+                elif metric == "motivation":
+                    effect.motivation_change += impact_value
+                elif metric == "social":
+                    effect.social_change += impact_value
+
+            # Store warning if hit minimum
+            if warning:
+                expense_warnings.append(warning)
+                print(f"⚠️ {warning}")
+
+            # Check for ongoing health warnings
+            new_value = current_value + actual_change
+            health_warning = get_expense_warning(category, new_value)
+            if health_warning and health_warning not in expense_warnings:
+                expense_warnings.append(health_warning)
+                print(f"💔 {health_warning}")
 
     # Recalculate total monthly expenses from categories
     state.monthly_expenses = (state.expense_housing + state.expense_food +
