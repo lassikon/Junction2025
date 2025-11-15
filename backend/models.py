@@ -199,6 +199,10 @@ class GameState(SQLModel, table=True):
     risk_factors: dict = Field(default={}, sa_column=Column(JSON))
     # Example: {"has_car": True, "has_pet": True, "has_rental": True}
 
+    # Cached next question (for faster response)
+    cached_next_narrative: Optional[str] = None
+    cached_next_options: Optional[str] = None  # JSON string of options list
+
     # Timestamps
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -493,14 +497,19 @@ class DecisionResponse(SQLModel):
     """Response model after making a decision"""
     consequence_narrative: str
     updated_state: GameStateResponse
-    next_narrative: str
+    # Optional - may be fetched separately
+    next_narrative: Optional[str] = None
     # Full option data with effects for frontend to send back
-    next_options: List[Dict] = []
+    # Optional - may be fetched separately
+    next_options: Optional[List[Dict]] = None
     learning_moment: Optional[str] = None
     transaction_summary: Optional["TransactionSummary"] = None
     # Monthly income/expenses as transaction
     monthly_flow_transaction: Optional["TransactionSummary"] = None
     monthly_cash_flow: Optional["MonthlyCashFlowSummary"] = None
+    life_metrics_changes: Optional["LifeMetricsChanges"] = None
+    # True if next question is being generated in background
+    is_generating_next: bool = False
     life_metrics_changes: Optional["LifeMetricsChanges"] = None
 
 

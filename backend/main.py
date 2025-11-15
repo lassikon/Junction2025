@@ -26,7 +26,7 @@ from game_engine import (
 )
 from ai_narrative import (
     generate_event_narrative, generate_consequence_narrative,
-    generate_learning_moment, generate_dynamic_options
+    generate_learning_moment, generate_dynamic_options, get_ai_client
 )
 from rag_service import RAGService, get_rag_service
 import rag_service as rag_module
@@ -1183,6 +1183,84 @@ async def get_decision_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def generate_and_cache_next_question(
+    game_state_id: int,
+    game_state: GameState,
+    profile: PlayerProfile,
+    db_session: AsyncSession,
+    client: Optional[genai.Client]
+):
+    """
+    Background task to generate and cache the next question/options.
+    This runs asynchronously after the consequence is returned to the user.
+    """
+    try:
+        import json
+        from game_engine import get_event_type, generate_curveball_event, get_current_month_name
+        from ai_narrative import generate_event_narrative, generate_dynamic_options
+
+        print("\n🔄 Background: Starting next question generation...")
+
+        # Generate next event
+        next_event_type = get_event_type(game_state, profile)
+        next_curveball = None
+        if next_event_type == "curveball":
+            next_curveball = generate_curveball_event(game_state)
+
+        # Generate next narrative
+        next_narrative = await generate_event_narrative(
+            event_type=next_event_type,
+            state=game_state,
+            profile=profile,
+            db_session=db_session,
+            curveball=next_curveball,
+            client=client
+        )
+
+        # Generate dynamic next options with AI
+        next_options_data = generate_dynamic_options(
+            event_type=next_event_type,
+            narrative=next_narrative,
+            state=game_state,
+            profile=profile,
+            client=client
+        )
+
+        # Add event context to each option for frontend to send back
+        for opt in next_options_data:
+            opt['event_type'] = next_event_type
+            opt['narrative'] = next_narrative
+            opt['all_options'] = [o['text'] for o in next_options_data]
+
+        # Cache the results in the database
+        # We need a new session since we're in a background task
+        from database import async_engine
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+        async_session = async_sessionmaker(
+            async_engine, expire_on_commit=False)
+
+        async with async_session() as new_db_session:
+            # Fetch the game state again in this new session
+            result = await new_db_session.execute(
+                select(GameState).where(GameState.id == game_state_id)
+            )
+            cached_game_state = result.scalar_one_or_none()
+
+            if cached_game_state:
+                cached_game_state.cached_next_narrative = next_narrative
+                cached_game_state.cached_next_options = json.dumps(
+                    next_options_data)
+                await new_db_session.commit()
+                print("✅ Background: Next question cached successfully")
+            else:
+                print("⚠️ Background: Game state not found for caching")
+
+    except Exception as e:
+        print(f"❌ Background: Failed to generate next question: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 @app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 @app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 async def process_decision(
@@ -1403,62 +1481,6 @@ async def process_decision(
             await db_session.commit()
             await db_session.refresh(game_state)
 
-        # NOTE: RAG decision indexing disabled for MVP (using SQLite DecisionHistory instead)
-        # TODO (Future): When we have 100+ users, enable cross-player similarity search:
-        #   - Uncomment RAG indexing below
-        #   - Use retrieve_similar_decisions() for "What did others do?" insights
-        #   - Current approach: SQLite for personal history (fast, simple)
-        #   - Future approach: RAG for cross-player patterns (semantic similarity)
-        #
-        # try:
-        #     rag = get_rag_service()
-        #     rag.index_player_decision(
-        #         session_id=request.session_id,
-        #         step=step_number,
-        #         event_type=current_event_type,
-        #         chosen_option=request.chosen_option,
-        #         consequence=consequence,
-        #         fi_score=game_state.fi_score,
-        #         age=game_state.current_age,
-        #         education=profile.education_path
-        #     )
-        #     print(f"✅ Indexed decision for RAG (step {step_number})")
-        # except Exception as e:
-        #     print(f"⚠️ Failed to index decision: {e}")
-
-        # Generate next event
-        with timer("10. AI: Generate next narrative"):
-            next_event_type = get_event_type(game_state, profile)
-            next_curveball = None
-            if next_event_type == "curveball":
-                next_curveball = generate_curveball_event(game_state)
-
-            # Generate next narrative
-            next_narrative = await generate_event_narrative(
-                event_type=next_event_type,
-                state=game_state,
-                profile=profile,
-                db_session=db_session,
-                curveball=next_curveball,
-                client=client
-            )
-
-        # Generate dynamic next options with AI
-        with timer("11. AI: Generate next options"):
-            next_options_data = generate_dynamic_options(
-                event_type=next_event_type,
-                narrative=next_narrative,
-                state=game_state,
-                profile=profile,
-                client=client
-            )
-
-        # Add event context to each option for frontend to send back
-        for opt in next_options_data:
-            opt['event_type'] = next_event_type
-            opt['narrative'] = next_narrative
-            opt['all_options'] = [o['text'] for o in next_options_data]
-
         # Build updated state response
         updated_state = GameStateResponse(
             session_id=request.session_id,
@@ -1484,12 +1506,6 @@ async def process_decision(
 
         print(
             f"📤 RESPONSE - Investments being sent: {updated_state.investments}")
-
-        # === TIMING: Print total time ===
-        total_time = time.time() - start_total
-        print(f"\n⏱️  ========================================")
-        print(f"⏱️  TOTAL /api/step execution: {total_time:.3f}s")
-        print(f"⏱️  ========================================\n")
 
         # Create timestamp for transaction
         month_name = get_current_month_name(game_state.months_passed)
@@ -1546,16 +1562,35 @@ async def process_decision(
             month_phase_name=get_month_phase_name(game_state.month_phase)
         )
 
+        # === TIMING: Print time before next question generation ===
+        time_before_next = time.time() - start_total
+        print(
+            f"\n⏱️  Time to consequence (before next Q): {time_before_next:.3f}s\n")
+
+        # Start background task to generate next question
+        import asyncio
+        asyncio.create_task(
+            generate_and_cache_next_question(
+                game_state.id,
+                game_state,
+                profile,
+                db_session,
+                client
+            )
+        )
+
+        # Return consequence immediately (next question will be cached)
         return DecisionResponse(
             consequence_narrative=consequence,
             updated_state=updated_state,
-            next_narrative=next_narrative,
-            next_options=next_options_data,  # Full option data with effects
+            next_narrative=None,  # Will be fetched separately
+            next_options=None,  # Will be fetched separately
             learning_moment=learning,
             transaction_summary=transaction_summary,
             monthly_flow_transaction=monthly_flow_transaction,
             monthly_cash_flow=monthly_cash_flow_summary,
-            life_metrics_changes=life_metrics_changes
+            life_metrics_changes=life_metrics_changes,
+            is_generating_next=True
         )
 
     except HTTPException:
@@ -1566,3 +1601,103 @@ async def process_decision(
         traceback.print_exc()
         raise HTTPException(
             status_code=500, detail=f"Error processing decision: {str(e)}")
+
+
+@app.get("/api/next-question/{session_id}", tags=["Game"])
+async def get_next_question(
+    session_id: str,
+    db_session: AsyncSession = Depends(get_session)
+):
+    """
+    Fetch the pre-generated next question and options.
+    This is called after showing the consequence to get the cached next question.
+
+    Returns the cached narrative and options if available, otherwise generates them on-demand.
+    """
+    try:
+        import json
+
+        # Get profile and game state
+        result = await db_session.execute(
+            select(PlayerProfile).where(PlayerProfile.session_id == session_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        result = await db_session.execute(
+            select(GameState).where(GameState.profile_id == profile.id)
+        )
+        game_state = result.scalar_one_or_none()
+
+        if not game_state:
+            raise HTTPException(status_code=404, detail="Game state not found")
+
+        # Check if we have a cached question
+        if game_state.cached_next_narrative and game_state.cached_next_options:
+            print("✅ Returning cached next question")
+            next_narrative = game_state.cached_next_narrative
+            next_options = json.loads(game_state.cached_next_options)
+
+            # Clear the cache after retrieving
+            game_state.cached_next_narrative = None
+            game_state.cached_next_options = None
+            await db_session.commit()
+
+            return {
+                "next_narrative": next_narrative,
+                "next_options": next_options,
+                "was_cached": True
+            }
+
+        # If not cached, generate on-demand
+        print("⚠️ Cache miss - generating next question on-demand")
+        client = get_ai_client()
+
+        next_event_type = get_event_type(game_state, profile)
+        next_curveball = None
+        if next_event_type == "curveball":
+            next_curveball = generate_curveball_event(game_state)
+
+        next_narrative = await generate_event_narrative(
+            event_type=next_event_type,
+            state=game_state,
+            profile=profile,
+            db_session=db_session,
+            curveball=next_curveball,
+            client=client
+        )
+
+        next_options_data = generate_dynamic_options(
+            event_type=next_event_type,
+            narrative=next_narrative,
+            state=game_state,
+            profile=profile,
+            client=client
+        )
+
+        # Add event context to each option
+        for opt in next_options_data:
+            opt['event_type'] = next_event_type
+            opt['narrative'] = next_narrative
+            opt['all_options'] = [o['text'] for o in next_options_data]
+
+        return {
+            "next_narrative": next_narrative,
+            "next_options": next_options_data,
+            "was_cached": False
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Failed to get next question: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================
+# LEADERBOARD ENDPOINTS
+# ===========================
