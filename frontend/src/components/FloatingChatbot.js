@@ -10,10 +10,10 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
  * Features:
  * - Toggle open/close button
  * - Game-aware financial advice
- * - Access to current game state
+ * - Access to current game state and narrative
  * - Clean, modern UI with typewriter effect
  */
-const FloatingChatbot = ({ sessionId, isOpen, onToggle }) => {
+const FloatingChatbot = ({ sessionId, isOpen, onToggle, currentNarrative, currentOptions }) => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -76,7 +76,10 @@ const FloatingChatbot = ({ sessionId, isOpen, onToggle }) => {
   // Add welcome message when first opened
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      const welcomeMessage = "Hi! I'm your Money Mentor. I can see your current financial situation and help you with:\n\n💰 Investment strategies\n📊 Savings advice\n🎯 Financial independence planning\n💡 Understanding financial concepts\n\nWhat would you like to know?";
+      const hasDecision = currentNarrative && currentOptions && currentOptions.length > 0;
+      const welcomeMessage = hasDecision 
+        ? "Hi! I'm your Money Mentor. I can see your current situation and the options you're considering. Ask me anything about:\n\n💭 Which option might be best for you\n📊 Financial impacts of each choice\n🎯 Long-term strategy advice\n💡 Understanding the concepts\n\nHow can I help with this decision?"
+        : "Hi! I'm your Money Mentor. I can see your current financial situation and help you with:\n\n💰 Investment strategies\n📊 Savings advice\n🎯 Financial independence planning\n💡 Understanding financial concepts\n\nWhat would you like to know?";
       
       typewriterEffect(welcomeMessage, () => {
         setMessages([{
@@ -85,7 +88,7 @@ const FloatingChatbot = ({ sessionId, isOpen, onToggle }) => {
         }]);
       });
     }
-  }, [isOpen]);
+  }, [isOpen, currentNarrative, currentOptions]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -97,9 +100,19 @@ const FloatingChatbot = ({ sessionId, isOpen, onToggle }) => {
     setLoading(true);
 
     try {
+      // Build context-aware message with current narrative/options if available
+      let contextualMessage = message;
+      if (currentNarrative && currentOptions && currentOptions.length > 0) {
+        const optionsText = currentOptions.map((opt, idx) => 
+          `${idx + 1}. ${typeof opt === 'string' ? opt : opt.text}`
+        ).join('\n');
+        
+        contextualMessage = `CURRENT SITUATION:\n${currentNarrative}\n\nAVAILABLE OPTIONS:\n${optionsText}\n\nMY QUESTION:\n${message}`;
+      }
+
       const response = await axios.post(`${API_URL}/api/chat`, {
         session_id: sessionId,
-        message: message,
+        message: contextualMessage,
         model: 'gemini-2.0-flash-exp'
       });
 
@@ -196,7 +209,11 @@ const FloatingChatbot = ({ sessionId, isOpen, onToggle }) => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask about investments, savings, FI strategies..."
+              placeholder={
+                currentNarrative && currentOptions?.length > 0
+                  ? "Ask about these options or your situation..."
+                  : "Ask about investments, savings, FI strategies..."
+              }
               disabled={loading || isTyping}
               className="chatbot-input"
               rows="1"
