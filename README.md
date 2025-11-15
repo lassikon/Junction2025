@@ -1,20 +1,20 @@
-# AI Hackathon - Junction 2025
+# LifeSim - Financial Independence Quest
 
-Quick Docker setup with React frontend and Python FastAPI backend for AI/LLM development.
+An interactive financial education game powered by AI. Make life decisions, manage your finances, and work towards financial independence in a realistic simulation.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Docker & Docker Compose installed
-- API keys for LLM services (OpenAI, Anthropic, etc.)
+- Google Gemini API key ([Get one here](https://aistudio.google.com/app/apikey))
 
 ### Setup
 
 1. **Configure Backend Environment**
    ```bash
    cd backend
-   cp .env.example .env
-   # Edit .env and add your API keys
+   # Create .env file with your Gemini API key
+   echo "GEMINI_API_KEY=your_api_key_here" > .env
    ```
 
 2. **Start Everything**
@@ -37,78 +37,117 @@ docker-compose down
 ```
 .
 ├── backend/
-│   ├── Dockerfile
 │   ├── main.py              # FastAPI application with game endpoints
 │   ├── models.py            # SQLModel database models
 │   ├── database.py          # Database configuration & sessions
-│   ├── utils.py             # Game mechanics & calculations
-│   ├── test_db.py           # Database test script
+│   ├── game_engine.py       # Core game mechanics & decision effects
+│   ├── ai_narrative.py      # Gemini AI narrative generation
+│   ├── utils.py             # Helper functions & calculations
+│   ├── chat_utils.py        # Chat history & summaries
 │   ├── requirements.txt     # Python dependencies
-│   ├── DATABASE.md          # Database documentation
-│   ├── IMPLEMENTATION_SUMMARY.md  # Setup summary
+│   ├── prompts/             # AI prompt templates
+│   │   ├── narrative_prompt.json
+│   │   ├── consequence_prompt.json
+│   │   ├── learning_moment_prompt.json
+│   │   └── fallback_narratives.json
 │   └── .env                 # Environment variables (create this)
 ├── frontend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── public/
-│   └── src/
-│       ├── App.js           # Main React component
-│       ├── App.css
-│       └── index.js
+│   ├── src/
+│   │   ├── routes/          # Page components
+│   │   │   ├── OnboardingPage.js
+│   │   │   └── GamePage.js
+│   │   ├── components/      # UI components
+│   │   │   ├── GameDashboard.js
+│   │   │   ├── SceneView.js
+│   │   │   ├── ChoiceList.js
+│   │   │   ├── MetricsBar.js
+│   │   │   ├── ConsequenceModal.js
+│   │   │   └── TopBar.js
+│   │   ├── store/           # Zustand state management
+│   │   │   └── gameStore.js
+│   │   ├── api/             # TanStack Query API hooks
+│   │   │   └── lifesim.js
+│   │   └── hooks/           # Custom React hooks
+│   └── package.json
 ├── docs/
-│   └── LifeSim_Financial_Independence_Quest_Plan.md  # Project plan
+│   ├── API_DOCUMENTATION.md
+│   ├── DATABASE.md
+│   ├── EXPENSE_CATEGORIES_FRONTEND_GUIDE.md
+│   └── TANSTACK_ZUSTAND_README.md
 └── docker-compose.yml       # Docker orchestration
 ```
+
+## 🎮 Game Features
+
+- **AI-Generated Narratives**: Dynamic storytelling powered by Google Gemini 2.0 Flash
+- **Financial Simulation**: Realistic income, expenses, investments, and debt management
+- **Expense Breakdown**: Detailed expense categories (housing, food, transport, utilities, subscriptions, insurance, other)
+- **Life Metrics**: Energy, motivation, social connections, and financial knowledge
+- **Decision Making**: Choices with realistic consequences and trade-offs
+- **Curveballs**: Random life events that test your financial resilience
+- **Learning Moments**: Educational insights about personal finance
+- **Progress Tracking**: Transaction history and FI score tracking
 
 ## 🛠️ Development
 
 ### Backend (FastAPI)
 - Auto-reloads on code changes
 - API documentation at `/docs`
-- Includes CORS for frontend communication
-- Pre-configured with OpenAI & Anthropic packages
+- SQLite database with SQLModel ORM
+- Google Gemini AI integration for narrative generation
+- Background task processing for faster response times
 
 ### Frontend (React)
 - Hot-reload enabled
-- Axios for API calls
-- Clean chat interface
-- API status indicator
+- TanStack Query for server state management
+- Zustand for client state management
+- Responsive design with custom CSS
 
-### Available Endpoints
+### Key API Endpoints
 
-**GET** `/` - Root endpoint
-**GET** `/health` - Health check
-**POST** `/api/chat` - Chat with AI
-**GET** `/api/models` - List available models
+#### Authentication
+- **POST** `/api/auth/register` - Create new account
+- **POST** `/api/auth/login` - Login to existing account
+- **POST** `/api/auth/logout` - Logout
 
-#### LifeSim Game Endpoints
-**POST** `/api/onboarding` - Create new player and initialize game
-**GET** `/api/game/{session_id}` - Get current game state
-**GET** `/api/leaderboard` - Get top players
+#### Game
+- **POST** `/api/onboarding` - Start new game (requires authentication)
+- **GET** `/api/game/{session_id}` - Get current game state
+- **POST** `/api/step` - Make a decision and advance the game
+- **GET** `/api/next-question/{session_id}` - Fetch pre-generated next question
+- **GET** `/api/transactions/{session_id}` - Get transaction history
+- **GET** `/api/leaderboard` - View top players
 
-See `backend/DATABASE.md` for complete API documentation.
+#### Chat & AI
+- **POST** `/api/chat` - Chat with AI about financial topics
+- **GET** `/api/models` - List available AI models
+
+See `docs/API_DOCUMENTATION.md` for complete API documentation.
 
 ## 🧪 Testing the Setup
 
 1. Open http://localhost:4000
-2. You should see "API: connected" if backend is running
-3. Type a message - it will echo back (update `/api/chat` for real LLM integration)
+2. Create an account or login
+3. Complete the onboarding (name, city, education, risk attitude)
+4. Start playing! Make decisions and see your financial journey unfold
 
-## 🔧 Customization
-
-### Add LLM Integration
-Edit `backend/main.py` in the `/api/chat` endpoint:
-```python
-import openai
-# Add your LLM logic here
-```
+## 🔧 Configuration
 
 ### Environment Variables
-Add to `backend/.env`:
+
+**Required:**
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
-OPENAI_API_KEY=your_key
-ANTHROPIC_API_KEY=your_key
-```
+
+### AI Model Configuration
+
+The game uses Google Gemini 2.0 Flash (Experimental) by default. Available models:
+- `gemini-2.0-flash-exp` (recommended, fastest)
+- `gemini-1.5-pro` (more capable, slower)
+- `gemini-1.5-flash` (balanced)
+
+To change the model, update the `model` parameter in `backend/ai_narrative.py`.
 
 ## 📦 Installing Additional Packages
 
@@ -125,6 +164,13 @@ docker-compose up --build frontend
 ```
 
 ## 🐛 Troubleshooting
+
+**Missing Gemini API key:**
+```bash
+# Make sure .env file exists in backend/
+cat backend/.env
+# Should show: GEMINI_API_KEY=your_key_here
+```
 
 **Port already in use:**
 ```bash
@@ -144,12 +190,45 @@ docker-compose down
 docker-compose up --build
 ```
 
-## 🎯 Hackathon Tips
+**AI not generating narratives:**
+- Verify your Gemini API key is valid
+- Check backend logs: `docker-compose logs backend`
+- Ensure you have API quota remaining
 
-- Backend has OpenAI & Anthropic packages pre-installed
-- Use `/api/chat` endpoint for LLM integration
-- Frontend is styled and ready for demos
-- Hot-reload works in both frontend and backend
-- Check logs: `docker-compose logs -f`
+## 📚 Documentation
 
-Good luck at Junction 2025! 🚀
+- **API Reference**: `docs/API_DOCUMENTATION.md`
+- **Database Schema**: `docs/DATABASE.md`
+- **Expense Categories Guide**: `docs/EXPENSE_CATEGORIES_FRONTEND_GUIDE.md`
+- **State Management**: `docs/TANSTACK_ZUSTAND_README.md`
+
+## 🎯 Game Architecture
+
+### Backend Flow
+1. Player makes a decision → `POST /api/step`
+2. AI generates consequence narrative (immediate response)
+3. Effects applied to game state (money, metrics, expenses)
+4. Next question generated in background and cached
+5. Frontend fetches cached question → `GET /api/next-question/{session_id}`
+
+### AI Prompt System
+- **narrative_prompt.json**: Initial scenario generation
+- **consequence_prompt.json**: Decision outcomes and effects
+- **learning_moment_prompt.json**: Educational financial insights
+- **fallback_narratives.json**: Backup narratives when AI unavailable
+
+### Expense Breakdown System
+Each player's monthly expenses are divided into 7 categories:
+- Housing (40-45%): Rent/mortgage
+- Food (25%): Groceries, dining
+- Transport (8-12%): Public transport, car costs
+- Utilities (12%): Bills, internet, phone
+- Subscriptions (5%): Entertainment services
+- Insurance (5-8%): Health, car, home
+- Other (5-7%): Personal care, pets, misc
+
+Players can reduce expenses through decisions (e.g., cancel subscriptions, reduce food budget), but face trade-offs in energy, motivation, or social connections.
+
+---
+
+Built for Junction 2025 🚀

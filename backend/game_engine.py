@@ -17,6 +17,11 @@ from utils import (
     calculate_balance_score,
     clamp
 )
+from expense_constraints import (
+    validate_expense_change,
+    calculate_health_impact,
+    get_expense_warning
+)
 
 
 # Event types organized by month phase
@@ -62,6 +67,15 @@ class DecisionEffect:
         self.income_change: float = 0
         self.expense_change: float = 0
         self.passive_income_change: float = 0
+
+        # Detailed expense category changes
+        self.expense_housing_change: float = 0
+        self.expense_food_change: float = 0
+        self.expense_transport_change: float = 0
+        self.expense_utilities_change: float = 0
+        self.expense_subscriptions_change: float = 0
+        self.expense_insurance_change: float = 0
+        self.expense_other_change: float = 0
 
         self.energy_change: int = 0
         self.motivation_change: int = 0
@@ -194,6 +208,90 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> Dict:
     state.monthly_expenses += effect.expense_change
     state.passive_income += effect.passive_income_change
 
+    # Track warnings for expense constraint violations
+    expense_warnings = []
+
+    # Validate and apply expense category changes with health impacts
+    expense_categories = {
+        "housing": (state.expense_housing, effect.expense_housing_change),
+        "food": (state.expense_food, effect.expense_food_change),
+        "transport": (state.expense_transport, effect.expense_transport_change),
+        "utilities": (state.expense_utilities, effect.expense_utilities_change),
+        "subscriptions": (state.expense_subscriptions, effect.expense_subscriptions_change),
+        "insurance": (state.expense_insurance, effect.expense_insurance_change),
+        "other": (state.expense_other, effect.expense_other_change)
+    }
+
+    # Get player's profile to access city info (for validation)
+    from database import async_session_maker
+    import asyncio
+
+    for category, (current_value, change) in expense_categories.items():
+        if change != 0:
+            # Validate the change against minimums
+            # Note: We'll use a default city here since we don't have profile context
+            # This could be improved by passing profile to this function
+            allowed_change, warning = validate_expense_change(
+                category, current_value, change, city="Helsinki"
+            )
+
+            # Apply the allowed change (may be less than requested)
+            actual_change = allowed_change
+
+            # Calculate health impact from the expense change
+            health_impact = calculate_health_impact(
+                category, current_value, actual_change)
+
+            # Apply the expense change
+            if category == "housing":
+                state.expense_housing += actual_change
+                effect.expense_housing_change = actual_change
+            elif category == "food":
+                state.expense_food += actual_change
+                effect.expense_food_change = actual_change
+            elif category == "transport":
+                state.expense_transport += actual_change
+                effect.expense_transport_change = actual_change
+            elif category == "utilities":
+                state.expense_utilities += actual_change
+                effect.expense_utilities_change = actual_change
+            elif category == "subscriptions":
+                state.expense_subscriptions += actual_change
+                effect.expense_subscriptions_change = actual_change
+            elif category == "insurance":
+                state.expense_insurance += actual_change
+                effect.expense_insurance_change = actual_change
+            elif category == "other":
+                state.expense_other += actual_change
+                effect.expense_other_change = actual_change
+
+            # Apply health impacts to life metrics
+            for metric, impact_value in health_impact.items():
+                if metric == "energy":
+                    effect.energy_change += impact_value
+                elif metric == "motivation":
+                    effect.motivation_change += impact_value
+                elif metric == "social":
+                    effect.social_change += impact_value
+
+            # Store warning if hit minimum
+            if warning:
+                expense_warnings.append(warning)
+                print(f"⚠️ {warning}")
+
+            # Check for ongoing health warnings
+            new_value = current_value + actual_change
+            health_warning = get_expense_warning(category, new_value)
+            if health_warning and health_warning not in expense_warnings:
+                expense_warnings.append(health_warning)
+                print(f"💔 {health_warning}")
+
+    # Recalculate total monthly expenses from categories
+    state.monthly_expenses = (state.expense_housing + state.expense_food +
+                              state.expense_transport + state.expense_utilities +
+                              state.expense_subscriptions + state.expense_insurance +
+                              state.expense_other)
+
     # Convert negative cash to debt
     if state.money < 0:
         # Transfer negative balance to debt
@@ -253,6 +351,13 @@ def apply_decision_effects(state: GameState, effect: DecisionEffect) -> Dict:
         "monthly_income_change": effect.income_change,
         "monthly_expense_change": effect.expense_change,
         "passive_income_change": effect.passive_income_change,
+        "expense_housing_change": effect.expense_housing_change,
+        "expense_food_change": effect.expense_food_change,
+        "expense_transport_change": effect.expense_transport_change,
+        "expense_utilities_change": effect.expense_utilities_change,
+        "expense_subscriptions_change": effect.expense_subscriptions_change,
+        "expense_insurance_change": effect.expense_insurance_change,
+        "expense_other_change": effect.expense_other_change,
         "cash_balance": state.money,
         "investment_balance": state.investments,
         "debt_balance": state.debts,
@@ -848,6 +953,16 @@ def setup_dynamic_option_effect(option: Dict) -> DecisionEffect:
     effect.income_change = option.get("income_change", 0)
     effect.expense_change = option.get("expense_change", 0)
     effect.passive_income_change = option.get("passive_income_change", 0)
+
+    # Expense category effects
+    effect.expense_housing_change = option.get("expense_housing_change", 0)
+    effect.expense_food_change = option.get("expense_food_change", 0)
+    effect.expense_transport_change = option.get("expense_transport_change", 0)
+    effect.expense_utilities_change = option.get("expense_utilities_change", 0)
+    effect.expense_subscriptions_change = option.get(
+        "expense_subscriptions_change", 0)
+    effect.expense_insurance_change = option.get("expense_insurance_change", 0)
+    effect.expense_other_change = option.get("expense_other_change", 0)
 
     # Life metric effects
     effect.energy_change = int(option.get("energy_change", 0))

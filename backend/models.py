@@ -66,8 +66,10 @@ class Account(SQLModel, table=True):
     # Persistent onboarding data (saved so they don't re-do onboarding each game)
     default_age: Optional[int] = None
     default_city: Optional[str] = None
-    default_education_path: Optional[str] = None  # Store as string to avoid enum issues
-    default_risk_attitude: Optional[str] = None  # Store as string to avoid enum issues
+    # Store as string to avoid enum issues
+    default_education_path: Optional[str] = None
+    # Store as string to avoid enum issues
+    default_risk_attitude: Optional[str] = None
     default_monthly_income: Optional[float] = None
     default_monthly_expenses: Optional[float] = None
     default_starting_savings: Optional[float] = None
@@ -75,8 +77,10 @@ class Account(SQLModel, table=True):
     default_aspirations: dict = Field(default={}, sa_column=Column(JSON))
 
     # Relationships
-    game_sessions: List["PlayerProfile"] = Relationship(back_populates="account")
-    session_tokens: List["SessionToken"] = Relationship(back_populates="account")
+    game_sessions: List["PlayerProfile"] = Relationship(
+        back_populates="account")
+    session_tokens: List["SessionToken"] = Relationship(
+        back_populates="account")
 
 
 # Session Token Model
@@ -115,8 +119,10 @@ class PlayerProfile(SQLModel, table=True):
     player_name: str = Field(max_length=100)
 
     # Account linkage (nullable for test mode/guest players)
-    account_id: Optional[int] = Field(default=None, foreign_key="accounts.id", index=True)
-    is_test_mode: bool = Field(default=False)  # True if playing as guest (not saved to leaderboard)
+    account_id: Optional[int] = Field(
+        default=None, foreign_key="accounts.id", index=True)
+    # True if playing as guest (not saved to leaderboard)
+    is_test_mode: bool = Field(default=False)
 
     # Onboarding data
     age: int = Field(ge=15, le=35)
@@ -171,7 +177,21 @@ class GameState(SQLModel, table=True):
     # Financial metrics
     money: float = Field(default=0.0)  # Current cash/savings
     monthly_income: float = Field(default=0.0)
+    # Total (calculated from breakdown)
     monthly_expenses: float = Field(default=0.0)
+
+    # Detailed expense breakdown
+    expense_housing: float = Field(default=0.0)  # Rent/mortgage
+    expense_food: float = Field(default=0.0)  # Groceries and eating
+    expense_transport: float = Field(
+        default=0.0)  # Public transport, car costs
+    # Electricity, water, internet
+    expense_utilities: float = Field(default=0.0)
+    expense_subscriptions: float = Field(default=0.0)  # Netflix, gym, etc.
+    expense_insurance: float = Field(
+        default=0.0)  # Health, car, home insurance
+    expense_other: float = Field(default=0.0)  # Miscellaneous
+
     investments: float = Field(default=0.0)  # Value of investments
     passive_income: float = Field(default=0.0)  # Income from investments
     debts: float = Field(default=0.0)
@@ -192,6 +212,10 @@ class GameState(SQLModel, table=True):
     # Risk factors for curveballs
     risk_factors: dict = Field(default={}, sa_column=Column(JSON))
     # Example: {"has_car": True, "has_pet": True, "has_rental": True}
+
+    # Cached next question (for faster response)
+    cached_next_narrative: Optional[str] = None
+    cached_next_options: Optional[str] = None  # JSON string of options list
 
     # Timestamps
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -299,8 +323,10 @@ class LeaderboardEntry(SQLModel, table=True):
     session_id: str = Field(index=True)
 
     # Account linkage (nullable for test mode)
-    account_id: Optional[int] = Field(default=None, foreign_key="accounts.id", index=True)
-    is_test_mode: bool = Field(default=False)  # Don't show test mode plays on leaderboard
+    account_id: Optional[int] = Field(
+        default=None, foreign_key="accounts.id", index=True)
+    # Don't show test mode plays on leaderboard
+    is_test_mode: bool = Field(default=False)
 
     # Player info
     player_name: str
@@ -356,7 +382,8 @@ class ChatSession(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    player_profile: PlayerProfile = Relationship(back_populates="chat_sessions")
+    player_profile: PlayerProfile = Relationship(
+        back_populates="chat_sessions")
     messages: List["ChatMessage"] = Relationship(
         back_populates="chat_session",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
@@ -446,6 +473,16 @@ class GameStateResponse(SQLModel):
     money: float
     monthly_income: float
     monthly_expenses: float
+
+    # Expense breakdown
+    expense_housing: float = 0.0
+    expense_food: float = 0.0
+    expense_transport: float = 0.0
+    expense_utilities: float = 0.0
+    expense_subscriptions: float = 0.0
+    expense_insurance: float = 0.0
+    expense_other: float = 0.0
+
     investments: float
     passive_income: float
     debts: float
@@ -484,12 +521,19 @@ class DecisionResponse(SQLModel):
     """Response model after making a decision"""
     consequence_narrative: str
     updated_state: GameStateResponse
-    next_narrative: str
+    # Optional - may be fetched separately
+    next_narrative: Optional[str] = None
     # Full option data with effects for frontend to send back
-    next_options: List[Dict] = []
+    # Optional - may be fetched separately
+    next_options: Optional[List[Dict]] = None
     learning_moment: Optional[str] = None
     transaction_summary: Optional["TransactionSummary"] = None
+    # Monthly income/expenses as transaction
+    monthly_flow_transaction: Optional["TransactionSummary"] = None
     monthly_cash_flow: Optional["MonthlyCashFlowSummary"] = None
+    life_metrics_changes: Optional["LifeMetricsChanges"] = None
+    # True if next question is being generated in background
+    is_generating_next: bool = False
     life_metrics_changes: Optional["LifeMetricsChanges"] = None
 
 
@@ -513,6 +557,23 @@ class LifeMetricsChanges(SQLModel):
     knowledge_change: int = 0
 
 
+class ExpenseBreakdown(SQLModel):
+    """Detailed breakdown of monthly expenses"""
+    housing: float = 0.0
+    food: float = 0.0
+    transport: float = 0.0
+    utilities: float = 0.0
+    subscriptions: float = 0.0
+    insurance: float = 0.0
+    other: float = 0.0
+
+    @property
+    def total(self) -> float:
+        """Calculate total monthly expenses"""
+        return (self.housing + self.food + self.transport +
+                self.utilities + self.subscriptions + self.insurance + self.other)
+
+
 class TransactionSummary(SQLModel):
     """Summary of financial changes from a decision"""
     # One-time changes
@@ -524,6 +585,15 @@ class TransactionSummary(SQLModel):
     monthly_income_change: float
     monthly_expense_change: float
     passive_income_change: float
+
+    # Detailed expense category changes (optional)
+    expense_housing_change: float = 0.0
+    expense_food_change: float = 0.0
+    expense_transport_change: float = 0.0
+    expense_utilities_change: float = 0.0
+    expense_subscriptions_change: float = 0.0
+    expense_insurance_change: float = 0.0
+    expense_other_change: float = 0.0
 
     # New balances
     cash_balance: float

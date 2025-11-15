@@ -26,8 +26,10 @@ from game_engine import (
 )
 from ai_narrative import (
     generate_event_narrative, generate_consequence_narrative,
-    generate_learning_moment, generate_dynamic_options
+    generate_learning_moment, generate_dynamic_options, get_ai_client
 )
+from financial_calculator import calculate_effects_from_llm
+from mcp_client import close_mcp_client
 from rag_service import RAGService, get_rag_service
 import rag_service as rag_module
 from chat_utils import (
@@ -86,6 +88,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     print("👋 Shutting down LifeSim API...")
+    await close_mcp_client()
     await close_db()
 
 
@@ -177,21 +180,21 @@ async def register(
 ):
     """
     Register a new user account
-    
+
     Creates a new account with hashed password and returns an auth token.
-    
+
     **Process:**
     1. Validates username is unique
     2. Hashes password with bcrypt
     3. Creates account record
     4. Generates session token
     5. Returns token and account info
-    
+
     **Parameters:**
     - **username**: Unique username (3-50 chars)
     - **password**: Password (min 6 chars)
     - **display_name**: Display name (1-100 chars)
-    
+
     **Returns:** Auth token and account information
     """
     try:
@@ -200,13 +203,14 @@ async def register(
             select(Account).where(Account.username == request.username.lower())
         )
         existing_account = result.scalar_one_or_none()
-        
+
         if existing_account:
-            raise HTTPException(status_code=400, detail="Username already taken")
-        
+            raise HTTPException(
+                status_code=400, detail="Username already taken")
+
         # Hash password
         password_hash = hash_password(request.password)
-        
+
         # Create account
         account = Account(
             username=request.username.lower(),
@@ -214,17 +218,18 @@ async def register(
             display_name=request.display_name,
             has_completed_onboarding=False
         )
-        
+
         db_session.add(account)
         await db_session.flush()
-        
+
         # Create session token
         token = await create_session_token(account.id, db_session)
-        
+
         await db_session.commit()
-        
-        print(f"✅ Registered new account: {account.username} (ID: {account.id})")
-        
+
+        print(
+            f"✅ Registered new account: {account.username} (ID: {account.id})")
+
         return AuthResponse(
             token=token,
             account_id=account.id,
@@ -232,14 +237,15 @@ async def register(
             display_name=account.display_name,
             has_completed_onboarding=account.has_completed_onboarding
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         await db_session.rollback()
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error creating account: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error creating account: {str(e)}")
 
 
 @app.post("/api/auth/login", response_model=AuthResponse, tags=["Authentication"])
@@ -249,13 +255,13 @@ async def login(
 ):
     """
     Login to existing account
-    
+
     Validates credentials and returns an auth token.
-    
+
     **Parameters:**
     - **username**: Account username
     - **password**: Account password
-    
+
     **Returns:** Auth token and account information
     """
     try:
@@ -264,24 +270,26 @@ async def login(
             select(Account).where(Account.username == request.username.lower())
         )
         account = result.scalar_one_or_none()
-        
+
         if not account:
-            raise HTTPException(status_code=401, detail="Invalid username or password")
-        
+            raise HTTPException(
+                status_code=401, detail="Invalid username or password")
+
         # Verify password
         if not verify_password(request.password, account.password_hash):
-            raise HTTPException(status_code=401, detail="Invalid username or password")
-        
+            raise HTTPException(
+                status_code=401, detail="Invalid username or password")
+
         # Update last login
         account.last_login = datetime.utcnow()
-        
+
         # Create session token
         token = await create_session_token(account.id, db_session)
-        
+
         await db_session.commit()
-        
+
         print(f"✅ User logged in: {account.username} (ID: {account.id})")
-        
+
         return AuthResponse(
             token=token,
             account_id=account.id,
@@ -289,14 +297,15 @@ async def login(
             display_name=account.display_name,
             has_completed_onboarding=account.has_completed_onboarding
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         await db_session.rollback()
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error during login: {str(e)}")
 
 
 @app.post("/api/auth/logout", tags=["Authentication"])
@@ -306,37 +315,39 @@ async def logout(
 ):
     """
     Logout and invalidate current session token
-    
+
     **Headers:**
     - **Authorization**: Bearer {token}
-    
+
     **Returns:** Success message
     """
     try:
         # Parse token
         parts = authorization.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Invalid authorization header")
-        
+            raise HTTPException(
+                status_code=401, detail="Invalid authorization header")
+
         token = parts[1]
-        
+
         # Find and deactivate token
         result = await db_session.execute(
             select(SessionToken).where(SessionToken.token == token)
         )
         session_token = result.scalar_one_or_none()
-        
+
         if session_token:
             session_token.is_active = False
             await db_session.commit()
-        
+
         return {"message": "Logged out successfully"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
         await db_session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error during logout: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error during logout: {str(e)}")
 
 
 @app.get("/api/account/profile", response_model=AccountProfileResponse, tags=["Account"])
@@ -346,24 +357,25 @@ async def get_account_profile(
 ):
     """
     Get current account profile and onboarding defaults
-    
+
     Requires authentication.
-    
+
     **Headers:**
     - **Authorization**: Bearer {token}
-    
+
     **Returns:** Account profile with onboarding defaults
     """
     # Parse and validate token
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
-    
+        raise HTTPException(
+            status_code=401, detail="Invalid authorization header")
+
     token = parts[1]
     account = await validate_token(token, db_session)
     if not account:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
+
     return AccountProfileResponse(
         account_id=account.id,
         username=account.username,
@@ -390,26 +402,28 @@ async def update_onboarding_defaults(
 ):
     """
     Update account onboarding defaults
-    
+
     Saves onboarding data to account so user doesn't have to fill it out again.
-    
+
     **Headers:**
     - **Authorization**: Bearer {token}
-    
+
     **Parameters:** Onboarding data (see UpdateOnboardingDefaultsRequest)
-    
+
     **Returns:** Success message
     """
     try:
         # Parse and validate token
         parts = authorization.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Invalid authorization header")
-        
+            raise HTTPException(
+                status_code=401, detail="Invalid authorization header")
+
         token = parts[1]
         account = await validate_token(token, db_session)
         if not account:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+            raise HTTPException(
+                status_code=401, detail="Invalid or expired token")
         account.default_age = request.age
         account.default_city = request.city
         account.default_education_path = request.education_path
@@ -420,16 +434,17 @@ async def update_onboarding_defaults(
         account.default_starting_debt = request.starting_debt
         account.default_aspirations = request.aspirations
         account.has_completed_onboarding = True
-        
+
         await db_session.commit()
-        
+
         print(f"✅ Updated onboarding defaults for account: {account.username}")
-        
+
         return {"message": "Onboarding defaults updated successfully"}
-        
+
     except Exception as e:
         await db_session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error updating defaults: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error updating defaults: {str(e)}")
 
 
 @app.post("/api/chat", response_model=ChatResponse, tags=["Chat"])
@@ -728,7 +743,7 @@ async def create_player(
     Create a new player profile and start the game
 
     This is the first endpoint called when starting a new game.
-    
+
     **Supports:**
     - Authenticated users (with Authorization header) - links to account
     - Guest/test mode (no header) - creates anonymous session
@@ -748,7 +763,7 @@ async def create_player(
         # Check if authenticated (optional)
         account = None
         is_test_mode = True  # Default to test mode
-        
+
         if authorization:
             # Try to get account - parse token
             parts = authorization.split()
@@ -757,15 +772,16 @@ async def create_player(
                 account = await validate_token(token, session)
             else:
                 account = None
-            
+
             if account:
                 is_test_mode = False  # Authenticated = not test mode
-                print(f"🔐 Authenticated user starting game: {account.username}")
+                print(
+                    f"🔐 Authenticated user starting game: {account.username}")
             else:
                 print(f"👤 Guest user starting game (test mode)")
         else:
             print(f"👤 Guest user starting game (test mode)")
-        
+
         # Generate unique session ID
         session_id = generate_session_id()
 
@@ -786,7 +802,7 @@ async def create_player(
 
         session.add(profile)
         await session.flush()  # Get the profile ID
-        
+
         # If authenticated and first onboarding, save as defaults
         if account and not account.has_completed_onboarding:
             account.default_age = request.age
@@ -799,7 +815,8 @@ async def create_player(
             account.default_starting_debt = request.starting_debt
             account.default_aspirations = request.aspirations
             account.has_completed_onboarding = True
-            print(f"✅ Saved onboarding defaults for account: {account.username}")
+            print(
+                f"✅ Saved onboarding defaults for account: {account.username}")
 
         # Initialize game state
         initial_state = initialize_game_state(
@@ -826,7 +843,7 @@ async def create_player(
             event_type=initial_event_type,
             state=game_state,
             profile=profile,
-            db_session=session,
+            db_session=None,
             curveball=None,
             client=client
         )
@@ -1020,14 +1037,15 @@ async def get_leaderboard(
     """
     try:
         # Build query
-        query = select(LeaderboardEntry).order_by(LeaderboardEntry.final_fi_score.desc())
-        
+        query = select(LeaderboardEntry).order_by(
+            LeaderboardEntry.final_fi_score.desc())
+
         # Filter out test mode by default
         if not include_test_mode:
             query = query.where(LeaderboardEntry.is_test_mode == False)
-        
+
         query = query.limit(limit)
-        
+
         result = await session.execute(query)
         entries = result.scalars().all()
 
@@ -1168,7 +1186,84 @@ async def get_decision_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
+async def generate_and_cache_next_question(
+    game_state_id: int,
+    game_state: GameState,
+    profile: PlayerProfile,
+    db_session: AsyncSession,
+    client: Optional[genai.Client]
+):
+    """
+    Background task to generate and cache the next question/options.
+    This runs asynchronously after the consequence is returned to the user.
+    """
+    try:
+        import json
+        from game_engine import get_event_type, generate_curveball_event, get_current_month_name
+        from ai_narrative import generate_event_narrative, generate_dynamic_options
+
+        print("\n🔄 Background: Starting next question generation...")
+
+        # Generate next event
+        next_event_type = get_event_type(game_state, profile)
+        next_curveball = None
+        if next_event_type == "curveball":
+            next_curveball = generate_curveball_event(game_state)
+
+        # Generate next narrative
+        next_narrative = await generate_event_narrative(
+            event_type=next_event_type,
+            state=game_state,
+            profile=profile,
+            db_session=None,  # Don't pass session to avoid state errors
+            curveball=next_curveball,
+            client=client
+        )
+
+        # Generate dynamic next options with AI
+        next_options_data = generate_dynamic_options(
+            event_type=next_event_type,
+            narrative=next_narrative,
+            state=game_state,
+            profile=profile,
+            client=client
+        )
+
+        # Add event context to each option for frontend to send back
+        for opt in next_options_data:
+            opt['event_type'] = next_event_type
+            opt['narrative'] = next_narrative
+            opt['all_options'] = [o['text'] for o in next_options_data]
+
+        # Cache the results in the database
+        # We need a new session since we're in a background task
+        from database import async_engine
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+        async_session = async_sessionmaker(
+            async_engine, expire_on_commit=False)
+
+        async with async_session() as new_db_session:
+            # Fetch the game state again in this new session
+            result = await new_db_session.execute(
+                select(GameState).where(GameState.id == game_state_id)
+            )
+            cached_game_state = result.scalar_one_or_none()
+
+            if cached_game_state:
+                cached_game_state.cached_next_narrative = next_narrative
+                cached_game_state.cached_next_options = json.dumps(
+                    next_options_data)
+                await new_db_session.commit()
+                print("✅ Background: Next question cached successfully")
+            else:
+                print("⚠️ Background: Game state not found for caching")
+
+    except Exception as e:
+        print(f"❌ Background: Failed to generate next question: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 @app.post("/api/step", response_model=DecisionResponse, tags=["Game"])
 async def process_decision(
     request: DecisionRequest,
@@ -1298,15 +1393,34 @@ async def process_decision(
         )
 
         consequence = consequence_result['narrative']
-        effects_dict = consequence_result['effects']
-
+        
+        # NEW: Use MCP financial calculator to determine actual effects
         print(f"📜 Consequence: {consequence[:100]}...")
-        print(f"💰 Effects from AI:")
+        print(f"🔍 DEBUG - LLM Response structure:")
+        print(f"  Keys: {consequence_result.keys()}")
+        if 'outcome' in consequence_result:
+            print(f"  Outcome: {consequence_result['outcome']}")
+        else:
+            print(f"  ⚠️  No 'outcome' key - LLM returned old format!")
+        print(f"🧮 Calculating effects via MCP financial server...")
+        
+        game_state_snapshot = {
+            "money": state_before['money'],
+            "investments": game_state.investments
+        }
+        
+        effects_dict = await calculate_effects_from_llm(
+            llm_response=consequence_result,
+            game_state_before=game_state_snapshot
+        )
+        
+        print(f"💰 Calculated effects:")
         print(f"  Money: {effects_dict.get('money_change', 0)}")
         print(f"  Investments: {effects_dict.get('investment_change', 0)}")
+        print(f"  Passive Income: {effects_dict.get('passive_income_change', 0)}")
         print(f"  Debt: {effects_dict.get('debt_change', 0)}")
 
-        # NOW apply the effects that the AI determined
+        # NOW apply the effects that the MCP calculated
         effect = setup_dynamic_option_effect(effects_dict)
         transaction_data = apply_decision_effects(game_state, effect)
 
@@ -1388,62 +1502,6 @@ async def process_decision(
             await db_session.commit()
             await db_session.refresh(game_state)
 
-        # NOTE: RAG decision indexing disabled for MVP (using SQLite DecisionHistory instead)
-        # TODO (Future): When we have 100+ users, enable cross-player similarity search:
-        #   - Uncomment RAG indexing below
-        #   - Use retrieve_similar_decisions() for "What did others do?" insights
-        #   - Current approach: SQLite for personal history (fast, simple)
-        #   - Future approach: RAG for cross-player patterns (semantic similarity)
-        #
-        # try:
-        #     rag = get_rag_service()
-        #     rag.index_player_decision(
-        #         session_id=request.session_id,
-        #         step=step_number,
-        #         event_type=current_event_type,
-        #         chosen_option=request.chosen_option,
-        #         consequence=consequence,
-        #         fi_score=game_state.fi_score,
-        #         age=game_state.current_age,
-        #         education=profile.education_path
-        #     )
-        #     print(f"✅ Indexed decision for RAG (step {step_number})")
-        # except Exception as e:
-        #     print(f"⚠️ Failed to index decision: {e}")
-
-        # Generate next event
-        with timer("10. AI: Generate next narrative"):
-            next_event_type = get_event_type(game_state, profile)
-            next_curveball = None
-            if next_event_type == "curveball":
-                next_curveball = generate_curveball_event(game_state)
-
-            # Generate next narrative
-            next_narrative = await generate_event_narrative(
-                event_type=next_event_type,
-                state=game_state,
-                profile=profile,
-                db_session=db_session,
-                curveball=next_curveball,
-                client=client
-            )
-
-        # Generate dynamic next options with AI
-        with timer("11. AI: Generate next options"):
-            next_options_data = generate_dynamic_options(
-                event_type=next_event_type,
-                narrative=next_narrative,
-                state=game_state,
-                profile=profile,
-                client=client
-            )
-
-        # Add event context to each option for frontend to send back
-        for opt in next_options_data:
-            opt['event_type'] = next_event_type
-            opt['narrative'] = next_narrative
-            opt['all_options'] = [o['text'] for o in next_options_data]
-
         # Build updated state response
         updated_state = GameStateResponse(
             session_id=request.session_id,
@@ -1455,6 +1513,13 @@ async def process_decision(
             money=game_state.money,
             monthly_income=game_state.monthly_income,
             monthly_expenses=game_state.monthly_expenses,
+            expense_housing=game_state.expense_housing,
+            expense_food=game_state.expense_food,
+            expense_transport=game_state.expense_transport,
+            expense_utilities=game_state.expense_utilities,
+            expense_subscriptions=game_state.expense_subscriptions,
+            expense_insurance=game_state.expense_insurance,
+            expense_other=game_state.expense_other,
             investments=game_state.investments,
             passive_income=game_state.passive_income,
             debts=game_state.debts,
@@ -1470,18 +1535,12 @@ async def process_decision(
         print(
             f"📤 RESPONSE - Investments being sent: {updated_state.investments}")
 
-        # === TIMING: Print total time ===
-        total_time = time.time() - start_total
-        print(f"\n⏱️  ========================================")
-        print(f"⏱️  TOTAL /api/step execution: {total_time:.3f}s")
-        print(f"⏱️  ========================================\n")
-
         # Create timestamp for transaction
         month_name = get_current_month_name(game_state.months_passed)
         phase_name = get_month_phase_name(game_state.month_phase)
         timestamp = f"{phase_name} {month_name[:3]}"  # e.g., "Early Jan"
 
-        # Create transaction summary for response
+        # Create transaction summary for the player's decision
         transaction_summary = TransactionSummary(
             cash_change=transaction_data["cash_change"],
             investment_change=transaction_data["investment_change"],
@@ -1489,6 +1548,20 @@ async def process_decision(
             monthly_income_change=transaction_data["monthly_income_change"],
             monthly_expense_change=transaction_data["monthly_expense_change"],
             passive_income_change=transaction_data["passive_income_change"],
+            expense_housing_change=transaction_data.get(
+                "expense_housing_change", 0.0),
+            expense_food_change=transaction_data.get(
+                "expense_food_change", 0.0),
+            expense_transport_change=transaction_data.get(
+                "expense_transport_change", 0.0),
+            expense_utilities_change=transaction_data.get(
+                "expense_utilities_change", 0.0),
+            expense_subscriptions_change=transaction_data.get(
+                "expense_subscriptions_change", 0.0),
+            expense_insurance_change=transaction_data.get(
+                "expense_insurance_change", 0.0),
+            expense_other_change=transaction_data.get(
+                "expense_other_change", 0.0),
             cash_balance=transaction_data["cash_balance"],
             investment_balance=transaction_data["investment_balance"],
             debt_balance=transaction_data["debt_balance"],
@@ -1498,6 +1571,26 @@ async def process_decision(
             description=transaction_data["description"],
             timestamp=timestamp
         )
+
+        # Create monthly cash flow transaction (if applied this step)
+        monthly_flow_transaction = None
+        if cash_flow_data.get("applied", False):
+            monthly_flow_transaction = TransactionSummary(
+                cash_change=cash_flow_data["cash_change"],
+                investment_change=0.0,
+                debt_change=cash_flow_data.get("debt_from_deficit", 0.0),
+                monthly_income_change=0.0,
+                monthly_expense_change=0.0,
+                passive_income_change=0.0,
+                cash_balance=cash_flow_data["cash_balance"],
+                investment_balance=game_state.investments,
+                debt_balance=game_state.debts,
+                monthly_income_total=game_state.monthly_income,
+                monthly_expense_total=game_state.monthly_expenses,
+                passive_income_total=game_state.passive_income,
+                description=f"New month: Income €{cash_flow_data['income_received']:.0f} - Expenses €{cash_flow_data['expenses_paid']:.0f}",
+                timestamp=timestamp
+            )
 
         # Create monthly cash flow summary for response
         monthly_cash_flow_summary = MonthlyCashFlowSummary(
@@ -1511,15 +1604,35 @@ async def process_decision(
             month_phase_name=get_month_phase_name(game_state.month_phase)
         )
 
+        # === TIMING: Print time before next question generation ===
+        time_before_next = time.time() - start_total
+        print(
+            f"\n⏱️  Time to consequence (before next Q): {time_before_next:.3f}s\n")
+
+        # Start background task to generate next question
+        import asyncio
+        asyncio.create_task(
+            generate_and_cache_next_question(
+                game_state.id,
+                game_state,
+                profile,
+                db_session,
+                client
+            )
+        )
+
+        # Return consequence immediately (next question will be cached)
         return DecisionResponse(
             consequence_narrative=consequence,
             updated_state=updated_state,
-            next_narrative=next_narrative,
-            next_options=next_options_data,  # Full option data with effects
+            next_narrative=None,  # Will be fetched separately
+            next_options=None,  # Will be fetched separately
             learning_moment=learning,
             transaction_summary=transaction_summary,
+            monthly_flow_transaction=monthly_flow_transaction,
             monthly_cash_flow=monthly_cash_flow_summary,
-            life_metrics_changes=life_metrics_changes
+            life_metrics_changes=life_metrics_changes,
+            is_generating_next=True
         )
 
     except HTTPException:
@@ -1530,3 +1643,103 @@ async def process_decision(
         traceback.print_exc()
         raise HTTPException(
             status_code=500, detail=f"Error processing decision: {str(e)}")
+
+
+@app.get("/api/next-question/{session_id}", tags=["Game"])
+async def get_next_question(
+    session_id: str,
+    db_session: AsyncSession = Depends(get_session)
+):
+    """
+    Fetch the pre-generated next question and options.
+    This is called after showing the consequence to get the cached next question.
+
+    Returns the cached narrative and options if available, otherwise generates them on-demand.
+    """
+    try:
+        import json
+
+        # Get profile and game state
+        result = await db_session.execute(
+            select(PlayerProfile).where(PlayerProfile.session_id == session_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        result = await db_session.execute(
+            select(GameState).where(GameState.profile_id == profile.id)
+        )
+        game_state = result.scalar_one_or_none()
+
+        if not game_state:
+            raise HTTPException(status_code=404, detail="Game state not found")
+
+        # Check if we have a cached question
+        if game_state.cached_next_narrative and game_state.cached_next_options:
+            print("✅ Returning cached next question")
+            next_narrative = game_state.cached_next_narrative
+            next_options = json.loads(game_state.cached_next_options)
+
+            # Clear the cache after retrieving
+            game_state.cached_next_narrative = None
+            game_state.cached_next_options = None
+            await db_session.commit()
+
+            return {
+                "next_narrative": next_narrative,
+                "next_options": next_options,
+                "was_cached": True
+            }
+
+        # If not cached, generate on-demand
+        print("⚠️ Cache miss - generating next question on-demand")
+        client = get_ai_client()
+
+        next_event_type = get_event_type(game_state, profile)
+        next_curveball = None
+        if next_event_type == "curveball":
+            next_curveball = generate_curveball_event(game_state)
+
+        next_narrative = await generate_event_narrative(
+            event_type=next_event_type,
+            state=game_state,
+            profile=profile,
+            db_session=None,
+            curveball=next_curveball,
+            client=client
+        )
+
+        next_options_data = generate_dynamic_options(
+            event_type=next_event_type,
+            narrative=next_narrative,
+            state=game_state,
+            profile=profile,
+            client=client
+        )
+
+        # Add event context to each option
+        for opt in next_options_data:
+            opt['event_type'] = next_event_type
+            opt['narrative'] = next_narrative
+            opt['all_options'] = [o['text'] for o in next_options_data]
+
+        return {
+            "next_narrative": next_narrative,
+            "next_options": next_options_data,
+            "was_cached": False
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Failed to get next question: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================
+# LEADERBOARD ENDPOINTS
+# ===========================

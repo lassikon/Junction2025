@@ -135,6 +135,29 @@ export function useMakeDecision() {
 }
 
 // ===================================
+// QUERY: Get Next Question
+// ===================================
+/**
+ * Fetch the pre-generated next question and options
+ * @param {string} sessionId - The player's session ID
+ * @param {boolean} enabled - Whether to run this query
+ * @returns {UseQueryResult} - Query result with next question data
+ */
+export function useNextQuestion(sessionId, enabled = false) {
+  return useQuery({
+    queryKey: ["nextQuestion", sessionId],
+    queryFn: async () => {
+      const response = await axios.get(`${API_URL}/api/next-question/${sessionId}`);
+      return response.data;
+    },
+    enabled: enabled && !!sessionId,
+    staleTime: 0, // Always fetch fresh
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+}
+
+// ===================================
 // QUERY: Get Leaderboard
 // ===================================
 /**

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useGameStore } from "../store/gameStore";
-import { usePlayerState, useMakeDecision } from "../api/lifesim";
+import { usePlayerState, useMakeDecision, useNextQuestion } from "../api/lifesim";
 import TopBar from "../components/TopBar";
 import MetricsBar from "../components/MetricsBar";
 import SceneView from "../components/SceneView";
@@ -20,6 +20,7 @@ const GamePage = () => {
   const [showRecentChanges, setShowRecentChanges] = useState(true);
   const [monthlyCashFlow, setMonthlyCashFlow] = useState(null);
   const [lifeMetricsChanges, setLifeMetricsChanges] = useState(null);
+  const [fetchNextQuestion, setFetchNextQuestion] = useState(false);
   
   const {
     sessionId,
@@ -42,6 +43,18 @@ const GamePage = () => {
   const { data: playerState, isLoading: isLoadingPlayerState } =
     usePlayerState(sessionId);
   const decisionMutation = useMakeDecision();
+  
+  // Fetch next question when consequence is shown
+  const { data: nextQuestionData, isLoading: isLoadingNextQuestion } = useNextQuestion(sessionId, fetchNextQuestion);
+  
+  // When next question data arrives, store it
+  React.useEffect(() => {
+    if (nextQuestionData && fetchNextQuestion) {
+      console.log(nextQuestionData.was_cached ? "✅ Using cached next question" : "⚠️ Generated next question on-demand");
+      setNarrativeAndOptions(nextQuestionData.next_narrative, nextQuestionData.next_options);
+      setFetchNextQuestion(false); // Reset flag
+    }
+  }, [nextQuestionData, fetchNextQuestion, setNarrativeAndOptions]);
 
   const handleMakeDecision = () => {
     openDecisionModal();
@@ -62,7 +75,12 @@ const GamePage = () => {
       // Close decision modal
       closeDecisionModal();
 
-      // Add transaction to history
+      // Add monthly flow transaction first (if present)
+      if (result.monthly_flow_transaction) {
+        addTransaction(result.monthly_flow_transaction);
+      }
+
+      // Add decision transaction to history
       if (result.transaction_summary) {
         addTransaction(result.transaction_summary);
       }
@@ -83,8 +101,14 @@ const GamePage = () => {
         learningMoment: result.learning_moment,
       });
 
-      // Store next narrative and options
-      setNarrativeAndOptions(result.next_narrative, result.next_options);
+      // If next question is not in response, trigger fetch
+      if (!result.next_narrative || !result.next_options) {
+        console.log("🔄 Fetching next question...");
+        setFetchNextQuestion(true);
+      } else {
+        // Store next narrative and options if they were returned
+        setNarrativeAndOptions(result.next_narrative, result.next_options);
+      }
 
       console.log("✅ Decision processed successfully");
     } catch (error) {

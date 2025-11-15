@@ -90,10 +90,10 @@ async def retrieve_rag_context(
         print(
             f"📊 Retrieved {len(concepts) if concepts else 0} financial concepts")
 
-        if concepts:
-            for i, c in enumerate(concepts, 1):
-                print(
-                    f"  {i}. {c['title']} - Score: {c['score']:.3f} - Source: {c.get('source', 'unknown')}")
+        # if concepts:
+        #     for i, c in enumerate(concepts, 1):
+        #         print(
+        #             f"  {i}. {c['title']} - Score: {c['score']:.3f} - Source: {c.get('source', 'unknown')}")
 
         # Smart filtering: always include at least min_concepts, then apply threshold
         filtered_concepts = []
@@ -144,6 +144,7 @@ async def retrieve_rag_context(
             print("🕐 Retrieving player decision history from SQLite...")
 
             from utils import get_decision_context_for_llm
+            from sqlalchemy.exc import InvalidRequestError
 
             decision_context = await get_decision_context_for_llm(
                 profile_id=profile_id,
@@ -160,6 +161,9 @@ async def retrieve_rag_context(
             else:
                 print(f"ℹ️  No decision history yet (new player)")
 
+        except InvalidRequestError as e:
+            print(f"⚠️ Database session error (session already committed/closed): {e}")
+            print(f"ℹ️  Skipping decision history for this request")
         except Exception as e:
             print(f"⚠️ Decision history retrieval failed: {e}")
             import traceback
@@ -242,21 +246,23 @@ async def generate_event_narrative(
 
     try:
         # RAG-ENHANCED: Retrieve relevant financial concepts + player decision history
-        print("\n" + "#"*80)
-        print(f"📖 EVENT NARRATIVE GENERATION - Context Retrieval")
-        print("#"*80)
-        rag_query = f"{event_type} event. Age {state.current_age}, income €{state.monthly_income}, FI score {state.fi_score:.1f}%, financial knowledge {state.financial_knowledge}/100"
-        rag_context = await retrieve_rag_context(
-            query=rag_query,
-            profile_id=profile.id,
-            db_session=db_session,
-            current_age=state.current_age,
-            current_fi_score=state.fi_score,
-            top_k=5,
-            min_score=0.4,
-            min_concepts=3,
-            include_decisions=True
-        )
+        rag_context = None
+        if db_session is not None:
+            print("\n" + "#"*80)
+            print(f"📖 EVENT NARRATIVE GENERATION - Context Retrieval")
+            print("#"*80)
+            rag_query = f"{event_type} event. Age {state.current_age}, income €{state.monthly_income}, FI score {state.fi_score:.1f}%, financial knowledge {state.financial_knowledge}/100"
+            rag_context = await retrieve_rag_context(
+                query=rag_query,
+                profile_id=profile.id,
+                db_session=db_session,
+                current_age=state.current_age,
+                current_fi_score=state.fi_score,
+                top_k=5,
+                min_score=0.4,
+                min_concepts=3,
+                include_decisions=True
+            )
 
         if rag_context:
             print(
@@ -340,30 +346,30 @@ async def generate_consequence_narrative(
 
     try:
         # RAG-ENHANCED: Retrieve context about similar decisions
-        print("\n" + "#"*80)
-        print(f"💥 CONSEQUENCE GENERATION - Context Retrieval")
-        print("#"*80)
-        rag_query = f"{chosen_option}. {option_data.get('category', 'financial')} decision. Risk: {option_data.get('risk_level', 'medium')}"
-        rag_context = await retrieve_rag_context(
-            query=rag_query,
-            profile_id=profile.id,
-            db_session=db_session,
-            current_age=state.current_age,
-            current_fi_score=state.fi_score,
-            top_k=5,
-            min_score=0.4,
-            min_concepts=3,
-            include_decisions=True
-        )
+        # print("\n" + "#"*80)
+        # print(f"💥 CONSEQUENCE GENERATION - Context Retrieval")
+        # print("#"*80)
+        # rag_query = f"{chosen_option}. {option_data.get('category', 'financial')} decision. Risk: {option_data.get('risk_level', 'medium')}"
+        # rag_context = await retrieve_rag_context(
+        #     query=rag_query,
+        #     profile_id=profile.id,
+        #     db_session=db_session,
+        #     current_age=state.current_age,
+        #     current_fi_score=state.fi_score,
+        #     top_k=5,
+        #     min_score=0.4,
+        #     min_concepts=3,
+        #     include_decisions=True
+        # )
 
-        if rag_context:
-            print(f"✅ Context WILL BE INJECTED into consequence prompt")
-        else:
-            print(f"ℹ️  No context - proceeding with standard prompt")
-        print("#"*80 + "\n")
+        # if rag_context:
+        #     print(f"✅ Context WILL BE INJECTED into consequence prompt")
+        # else:
+        #     print(f"ℹ️  No context - proceeding with standard prompt")
+        # print("#"*80 + "\n")
 
         prompt = build_consequence_prompt(
-            chosen_option, option_data, state, profile, event_narrative, state_before, rag_context)
+            chosen_option, option_data, state, profile, event_narrative, state_before, None)
 
         print("\n" + "="*80)
         print("🤖 GEMINI API CALL - Consequence Generation")
@@ -602,25 +608,18 @@ def generate_option_texts(
         return [opt.get("fallback_text", opt["explanation"]) for opt in option_descriptions]
 
     try:
-        # RAG-ENHANCED: Retrieve context about the decision options
-        print("\n" + "#"*80)
-        print(f"🎯 OPTION TEXTS GENERATION - RAG Enhancement")
-        print("#"*80)
-        rag_query = f"{event_type} financial decision options. Age {state.current_age}, FI score {state.fi_score:.1f}%, income €{state.monthly_income}"
-        rag_context = retrieve_rag_context(
-            rag_query,
-            top_k=2,
-            min_score=0.4,
-            session_id=getattr(profile, 'session_id', None),
-            age=state.current_age,
-            education=profile.education_path.value,
-            include_decisions=True
-        )
-
-        if rag_context:
-            print(f"✅ RAG context WILL BE INJECTED into option texts prompt")
-        else:
-            print(f"ℹ️  No RAG context - proceeding with standard prompt")
+        # RAG-ENHANCED: Disabled due to missing db_session parameter
+        # print("\n" + "#"*80)
+        # print(f"🎯 OPTION TEXTS GENERATION - RAG Enhancement")
+        # print("#"*80)
+        # rag_query = f"{event_type} financial decision options. Age {state.current_age}, FI score {state.fi_score:.1f}%, income €{state.monthly_income}"
+        # rag_context = await retrieve_rag_context(...)
+        rag_context = None
+        
+        # if rag_context:
+        #     print(f"✅ RAG context WILL BE INJECTED into option texts prompt")
+        # else:
+        #     print(f"ℹ️  No RAG context - proceeding with standard prompt")
         print("#"*80 + "\n")
 
         # Build prompt for option generation
@@ -842,6 +841,13 @@ Ground your consequence in this knowledge. Consider the player's past patterns a
         money_before=state_before['money'],
         monthly_income=state.monthly_income,
         monthly_expenses=state.monthly_expenses,
+        expense_housing=state.expense_housing,
+        expense_food=state.expense_food,
+        expense_transport=state.expense_transport,
+        expense_utilities=state.expense_utilities,
+        expense_subscriptions=state.expense_subscriptions,
+        expense_insurance=state.expense_insurance,
+        expense_other=state.expense_other,
         investments_before=state_before['investments'],
         passive_income=state.passive_income,
         debts=state.debts,
