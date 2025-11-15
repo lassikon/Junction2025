@@ -188,7 +188,8 @@ async def create_player(
         await session.flush()  # Get the profile ID
 
         # Initialize game state
-        initial_state = initialize_game_state(profile)
+        initial_state = initialize_game_state(
+            profile, request.monthly_income, request.monthly_expenses)
         game_state = GameState(
             profile_id=profile.id,
             **initial_state

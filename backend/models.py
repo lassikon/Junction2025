@@ -90,7 +90,7 @@ class GameState(SQLModel, table=True):
     # Which decision/event the player is on
     current_step: int = Field(default=0)
     game_status: GameStatus = Field(default=GameStatus.ACTIVE)
-    
+
     # Time tracking
     current_age: int = Field(default=25)  # Updates as time passes
     years_passed: float = Field(default=0.0)  # Total game time in years
@@ -223,6 +223,8 @@ class OnboardingRequest(SQLModel):
     city: str = "Helsinki"
     education_path: EducationPath
     risk_attitude: RiskAttitude
+    monthly_income: float = Field(gt=0)
+    monthly_expenses: float = Field(ge=0)
     starting_savings: float = Field(default=0.0, ge=0)
     starting_debt: float = Field(default=0.0, ge=0)
     aspirations: dict = {}

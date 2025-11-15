@@ -67,12 +67,14 @@ const Onboarding = ({ onComplete, isLoading = false }) => {
     city: "Helsinki",
     education_path: "",
     risk_attitude: "",
+    monthly_income: 2000,
+    monthly_expenses: 1000,
     starting_savings: 0,
     starting_debt: 0,
     aspirations: {},
   });
 
-  const totalSteps = 6;
+  const totalSteps = 7;
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -133,6 +135,8 @@ const Onboarding = ({ onComplete, isLoading = false }) => {
       case 5:
         return formData.risk_attitude !== "";
       case 6:
+        return formData.monthly_income > 0 && formData.monthly_expenses >= 0;
+      case 7:
         return true; // Optional step
       default:
         return false;
@@ -279,6 +283,58 @@ const Onboarding = ({ onComplete, isLoading = false }) => {
         );
 
       case 6:
+        return (
+          <div className="step-content">
+            <h2>💼 Monthly Finances</h2>
+            <p className="step-description">
+              Tell us about your monthly income and expenses.
+            </p>
+
+            <div className="form-group">
+              <label htmlFor="monthly_income">Monthly Income (€)</label>
+              <input
+                id="monthly_income"
+                type="number"
+                min="0"
+                step="100"
+                value={formData.monthly_income}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    monthly_income: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="input-field"
+              />
+              <small className="input-hint">
+                Your total monthly income after taxes
+              </small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="monthly_expenses">Monthly Expenses (€)</label>
+              <input
+                id="monthly_expenses"
+                type="number"
+                min="0"
+                step="100"
+                value={formData.monthly_expenses}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    monthly_expenses: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="input-field"
+              />
+              <small className="input-hint">
+                Your total monthly expenses (rent, food, utilities, etc.)
+              </small>
+            </div>
+          </div>
+        );
+
+      case 7:
         return (
           <div className="step-content">
             <h2>💰 Financial Starting Point</h2>

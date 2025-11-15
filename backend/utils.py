@@ -136,12 +136,14 @@ def get_starting_expenses(city: str, has_car: bool = False, has_pet: bool = Fals
     return round(expenses, 2)
 
 
-def initialize_game_state(profile: PlayerProfile) -> Dict:
+def initialize_game_state(profile: PlayerProfile, monthly_income: float, monthly_expenses: float) -> Dict:
     """
     Initialize a new game state based on player profile.
 
     Args:
         profile: PlayerProfile from onboarding
+        monthly_income: User-provided monthly income
+        monthly_expenses: User-provided monthly expenses
 
     Returns:
         Dictionary with initial game state values
@@ -150,8 +152,9 @@ def initialize_game_state(profile: PlayerProfile) -> Dict:
     has_car = profile.aspirations.get("own_car", False)
     has_pet = profile.aspirations.get("own_pet", False)
 
-    monthly_income = get_starting_income(profile.education_path, profile.age)
-    monthly_expenses = get_starting_expenses(profile.city, has_car, has_pet)
+    # Use user-provided income and expenses instead of calculating them
+    # monthly_income = get_starting_income(profile.education_path, profile.age)
+    # monthly_expenses = get_starting_expenses(profile.city, has_car, has_pet)
 
     # Initial metrics based on risk attitude
     if profile.risk_attitude == RiskAttitude.RISK_AVERSE:
