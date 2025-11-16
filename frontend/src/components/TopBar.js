@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { API_URL } from "../config/api";
 import { useHealthCheck } from "../api/lifesim";
 import { useGameStore } from "../store/gameStore";
 import LeaderboardModal from "./LeaderboardModal";
 import LearnMore from "../LearnMore";
 import "../styles/TopBar.css";
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 /**
  * TopBar - Header with API status and game controls

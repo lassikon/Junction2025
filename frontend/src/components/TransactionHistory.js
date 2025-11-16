@@ -1,9 +1,8 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
+import { API_URL } from "../config/api";
 import "../styles/TransactionHistory.css";
-
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 /**
  * TransactionHistory - Full transaction log viewer

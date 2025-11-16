@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_URL } from '../config/api';
 import { useGameStore } from '../store/gameStore';
 import './SettingsPage.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const EDUCATION_PATHS = {
   vocational: 'Vocational Training',
