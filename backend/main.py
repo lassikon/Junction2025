@@ -136,13 +136,20 @@ else:
     client = None
 
 # CORS middleware for React frontend
+# Get frontend URL from environment variable for Cloud Run deployment
+frontend_url = os.getenv("FRONTEND_URL", "")
+allowed_origins = [
+    "http://localhost:4000",
+    "http://localhost:3000",
+    "https://lifesim.vaalanti.fi"
+]
+# Add Cloud Run frontend URL if provided
+if frontend_url:
+    allowed_origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    # Allow common local dev frontends. Add your frontend origin (3000/4000) if different.
-    allow_origins=[
-        "http://localhost:4000",
-        "https://lifesim.vaalanti.fi"
-    , "http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
