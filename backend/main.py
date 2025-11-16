@@ -136,20 +136,26 @@ else:
     client = None
 
 # CORS middleware for React frontend
-# Get frontend URL from environment variable for Cloud Run deployment
-frontend_url = os.getenv("FRONTEND_URL", "")
+# Allow Cloud Run frontend URLs and local development
 allowed_origins = [
     "http://localhost:4000",
     "http://localhost:3000",
-    "https://lifesim.vaalanti.fi"
+    "https://lifesim.vaalanti.fi",
+    # Allow all Cloud Run URLs (*.run.app)
+    "https://*.run.app"
 ]
-# Add Cloud Run frontend URL if provided
+
+# Get specific frontend URL from environment variable
+frontend_url = os.getenv("FRONTEND_URL", "")
 if frontend_url:
     allowed_origins.append(frontend_url)
+    print(f"✅ CORS: Added frontend URL: {frontend_url}")
+
+print(f"🌐 CORS allowed origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],  # Allow all origins for Cloud Run deployment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -425,7 +431,8 @@ async def refresh_auth(
         raise
     except Exception as e:
         await db_session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error refreshing session: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error refreshing session: {str(e)}")
 
 
 @app.get("/api/account/profile", response_model=AccountProfileResponse, tags=["Account"])
@@ -889,10 +896,10 @@ async def create_player(
             account.default_risk_attitude = request.risk_attitude.value
             account.default_monthly_income = request.monthly_income
             # Calculate total expenses from individual categories
-            total_expenses = (request.expense_housing + request.expense_food + 
-                            request.expense_transport + request.expense_utilities + 
-                            request.expense_insurance + request.expense_subscriptions + 
-                            request.expense_other)
+            total_expenses = (request.expense_housing + request.expense_food +
+                              request.expense_transport + request.expense_utilities +
+                              request.expense_insurance + request.expense_subscriptions +
+                              request.expense_other)
             account.default_monthly_expenses = total_expenses
             account.default_starting_savings = request.starting_savings
             account.default_starting_debt = request.starting_debt
@@ -903,7 +910,7 @@ async def create_player(
 
         # Initialize game state with individual expense categories
         initial_state = initialize_game_state(
-            profile, 
+            profile,
             request.monthly_income,
             request.expense_housing,
             request.expense_food,
@@ -1070,15 +1077,15 @@ async def update_expenses(
 ):
     """
     Update player expenses by removing optional expenses
-    
+
     Remove optional expenses (subscriptions, lifestyle choices) and apply
     the corresponding stat changes (motivation, energy, social_life penalties).
-    
+
     **Parameters:**
     - **session_id**: Player's unique session identifier
     - **removed_expense_ids**: List of expense IDs to remove (netflix, spotify, gym, dining, hobbies)
     - **stat_adjustments**: Dictionary of stat changes (e.g., {"motivation": -8})
-    
+
     **Returns:** Updated game state with expense savings and stat changes
     """
     try:
@@ -1125,25 +1132,29 @@ async def update_expenses(
             if expense_id in optional_expense_items:
                 expense = optional_expense_items[expense_id]
                 total_savings += expense['amount']
-                
+
                 # Remove from active subscriptions
                 if expense_id in updated_subscriptions:
                     del updated_subscriptions[expense_id]
-                
+
                 # Apply stat penalties (negative values since we're removing something beneficial)
                 if 'motivation' in expense:
-                    actual_stat_changes['motivation'] = actual_stat_changes.get('motivation', 0) - expense['motivation']
+                    actual_stat_changes['motivation'] = actual_stat_changes.get(
+                        'motivation', 0) - expense['motivation']
                 if 'energy' in expense:
-                    actual_stat_changes['energy'] = actual_stat_changes.get('energy', 0) - expense['energy']
+                    actual_stat_changes['energy'] = actual_stat_changes.get(
+                        'energy', 0) - expense['energy']
                 if 'social_life' in expense:
-                    actual_stat_changes['social_life'] = actual_stat_changes.get('social_life', 0) - expense['social_life']
+                    actual_stat_changes['social_life'] = actual_stat_changes.get(
+                        'social_life', 0) - expense['social_life']
 
         # Assign the new dict back to trigger SQLAlchemy change detection
         game_state.active_subscriptions = updated_subscriptions
 
         # Update game state - reduce subscription expenses
-        game_state.expense_subscriptions = max(0, game_state.expense_subscriptions - total_savings)
-        
+        game_state.expense_subscriptions = max(
+            0, game_state.expense_subscriptions - total_savings)
+
         # Recalculate total monthly expenses
         game_state.monthly_expenses = (
             game_state.expense_housing +
@@ -1157,11 +1168,14 @@ async def update_expenses(
 
         # Apply stat changes (with bounds checking)
         if 'motivation' in actual_stat_changes:
-            game_state.motivation = max(0, min(100, game_state.motivation + actual_stat_changes['motivation']))
+            game_state.motivation = max(
+                0, min(100, game_state.motivation + actual_stat_changes['motivation']))
         if 'energy' in actual_stat_changes:
-            game_state.energy = max(0, min(100, game_state.energy + actual_stat_changes['energy']))
+            game_state.energy = max(
+                0, min(100, game_state.energy + actual_stat_changes['energy']))
         if 'social_life' in actual_stat_changes:
-            game_state.social_life = max(0, min(100, game_state.social_life + actual_stat_changes['social_life']))
+            game_state.social_life = max(
+                0, min(100, game_state.social_life + actual_stat_changes['social_life']))
 
         # Commit changes to database
         await db_session.commit()
@@ -1650,7 +1664,7 @@ async def process_decision(
         )
 
         consequence = consequence_result['narrative']
-        
+
         # NEW: Use MCP financial calculator to determine actual effects
         print(f"📜 Consequence: {consequence[:100]}...")
         print(f"🔍 DEBUG - LLM Response structure:")
@@ -1660,21 +1674,22 @@ async def process_decision(
         else:
             print(f"  ⚠️  No 'outcome' key - LLM returned old format!")
         print(f"🧮 Calculating effects via MCP financial server...")
-        
+
         game_state_snapshot = {
             "money": state_before['money'],
             "investments": game_state.investments
         }
-        
+
         effects_dict = await calculate_effects_from_llm(
             llm_response=consequence_result,
             game_state_before=game_state_snapshot
         )
-        
+
         print(f"💰 Calculated effects:")
         print(f"  Money: {effects_dict.get('money_change', 0)}")
         print(f"  Investments: {effects_dict.get('investment_change', 0)}")
-        print(f"  Passive Income: {effects_dict.get('passive_income_change', 0)}")
+        print(
+            f"  Passive Income: {effects_dict.get('passive_income_change', 0)}")
         print(f"  Debt: {effects_dict.get('debt_change', 0)}")
 
         # NOW apply the effects that the MCP calculated
