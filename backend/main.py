@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, Cookie, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -138,7 +138,8 @@ else:
 # CORS middleware for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4000"],
+    # Allow common local dev frontends. Add your frontend origin (3000/4000) if different.
+    allow_origins=["http://localhost:4000", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -177,6 +178,7 @@ async def health():
 @app.post("/api/auth/register", response_model=AuthResponse, tags=["Authentication"])
 async def register(
     request: RegisterRequest,
+    response: Response,
     db_session: AsyncSession = Depends(get_session)
 ):
     """
@@ -231,6 +233,19 @@ async def register(
         print(
             f"✅ Registered new account: {account.username} (ID: {account.id})")
 
+        # Set HttpOnly session cookie so frontend can silently refresh on boot
+        # Note: cookie is HttpOnly and cannot be read by JS; frontend will call /api/auth/refresh
+        # to rehydrate in-memory auth state.
+        # Using Secure=False for local dev; set Secure=True in production + HTTPS.
+        response.set_cookie(
+            key="session_token",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            secure=False,
+            max_age=14 * 24 * 3600  # 14 days
+        )
+
         return AuthResponse(
             token=token,
             account_id=account.id,
@@ -252,6 +267,7 @@ async def register(
 @app.post("/api/auth/login", response_model=AuthResponse, tags=["Authentication"])
 async def login(
     request: LoginRequest,
+    response: Response,
     db_session: AsyncSession = Depends(get_session)
 ):
     """
@@ -291,6 +307,16 @@ async def login(
 
         print(f"✅ User logged in: {account.username} (ID: {account.id})")
 
+        # Set HttpOnly session cookie for refresh flow
+        response.set_cookie(
+            key="session_token",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            secure=False,
+            max_age=14 * 24 * 3600
+        )
+
         return AuthResponse(
             token=token,
             account_id=account.id,
@@ -311,6 +337,7 @@ async def login(
 
 @app.post("/api/auth/logout", tags=["Authentication"])
 async def logout(
+    response: Response,
     authorization: str = Header(...),
     db_session: AsyncSession = Depends(get_session)
 ):
@@ -340,6 +367,8 @@ async def logout(
         if session_token:
             session_token.is_active = False
             await db_session.commit()
+        # Also instruct browser to delete cookie (if present)
+        response.delete_cookie("session_token")
 
         return {"message": "Logged out successfully"}
 
@@ -349,6 +378,44 @@ async def logout(
         await db_session.rollback()
         raise HTTPException(
             status_code=500, detail=f"Error during logout: {str(e)}")
+
+
+@app.post("/api/auth/refresh", response_model=Optional[AuthResponse], tags=["Authentication"])
+async def refresh_auth(
+    session_token: Optional[str] = Cookie(None),
+    db_session: AsyncSession = Depends(get_session)
+):
+    """
+    Refresh authentication using the HttpOnly `session_token` cookie.
+
+    Returns an AuthResponse if the cookie is valid, otherwise returns null (200 with empty body).
+    This avoids a noisy 401 in the browser when a visitor is not logged in; other endpoints
+    that require authentication still return 401.
+    """
+    try:
+        if not session_token:
+            # No cookie provided — treat as anonymous visitor (return null)
+            return None
+
+        account = await validate_token(session_token, db_session)
+        if not account:
+            # Invalid or expired session — don't throw 401 here to keep frontend boot quiet
+            return None
+
+        # Return auth response (token returned is the session token stored in cookie)
+        return AuthResponse(
+            token=session_token,
+            account_id=account.id,
+            username=account.username,
+            display_name=account.display_name,
+            has_completed_onboarding=account.has_completed_onboarding
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db_session.rollback()
+        raise HTTPException(status_code=500, detail=f"Error refreshing session: {str(e)}")
 
 
 @app.get("/api/account/profile", response_model=AccountProfileResponse, tags=["Account"])

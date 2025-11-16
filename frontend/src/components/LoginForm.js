@@ -20,10 +20,14 @@ function LoginForm({ onSuccess, onBack }) {
 
     try {
       setLoading(true);
-      const response = await axios.post(`${API_URL}/api/auth/login`, {
-        username: formData.username,
-        password: formData.password,
-      });
+      const response = await axios.post(
+        `${API_URL}/api/auth/login`,
+        {
+          username: formData.username,
+          password: formData.password,
+        },
+        { withCredentials: true }
+      );
 
       // Save auth data to store
       setAuth(response.data);

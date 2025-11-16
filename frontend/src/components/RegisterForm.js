@@ -38,11 +38,15 @@ function RegisterForm({ onSuccess, onBack }) {
 
     try {
       setLoading(true);
-      const response = await axios.post(`${API_URL}/api/auth/register`, {
-        username: formData.username,
-        password: formData.password,
-        display_name: formData.display_name || formData.username,
-      });
+      const response = await axios.post(
+        `${API_URL}/api/auth/register`,
+        {
+          username: formData.username,
+          password: formData.password,
+          display_name: formData.display_name || formData.username,
+        },
+        { withCredentials: true }
+      );
 
       // Save auth data to store
       setAuth(response.data);

@@ -119,6 +119,7 @@ function SettingsPage() {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
+          withCredentials: true,
         }
       );
     } catch (err) {

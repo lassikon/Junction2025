@@ -50,6 +50,7 @@ const TopBar = ({ onShowTransactions, playerState }) => {
             headers: {
               Authorization: `Bearer ${authToken}`,
             },
+            withCredentials: true,
           }
         );
       } catch (err) {
